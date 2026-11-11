@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gymma</title>
+  <meta name="description" content="Logga dina gympass: övningar, vikt och reps.">
+  <meta name="theme-color" content="#1f6f5c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Gymma">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Hoppa till innehållet</a>
+
+  <header class="top">
+    <h1>Gymma</h1>
+  </header>
+
+  <main id="main" tabindex="-1"></main>
+
+  <nav class="tabs" aria-label="Huvudmeny">
+    <button type="button" data-action="goto" data-view="hem">Hem</button>
+    <button type="button" data-action="goto" data-view="pass" hidden>Pass</button>
+    <button type="button" data-action="goto" data-view="historik">Historik</button>
+    <button type="button" data-action="goto" data-view="ovningar">Övningar</button>
+  </nav>
+
+  <dialog id="picker" aria-labelledby="picker-title">
+    <div class="picker-head">
+      <h2 id="picker-title">Lägg till övning</h2>
+      <button type="button" class="icon-btn" data-action="close-picker" aria-label="Stäng">✕</button>
+    </div>
+    <label for="picker-search" class="sr-only">Sök övning</label>
+    <input id="picker-search" type="search" placeholder="Sök övning …" autocomplete="off">
+    <div id="picker-list"></div>
+  </dialog>
+
+  <div id="status" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="exercises.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
