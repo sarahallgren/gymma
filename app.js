@@ -51,6 +51,23 @@ function save() {
   }
 }
 
+// ---------- Ikoner ----------
+// Material Icons (Apache 2.0), inbäddade så att appen inte behöver hämta något utifrån.
+const ICONS = {
+  home: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z',
+  fitness: 'M20.57 14.86 22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z',
+  event: 'M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z',
+  history: 'M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z',
+  list: 'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z',
+  add: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
+  check: 'M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
+  close: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  expand: 'M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z',
+  play: 'M8 5v14l11-7z',
+};
+const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${ICONS[name]}"/></svg>`;
+document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
+
 // ---------- Hjälpfunktioner ----------
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -114,7 +131,7 @@ function howTo(exId) {
   const ex = exById(exId);
   if (!ex || !ex.img) return '';
   return `<details class="how">
-    <summary>Visa hur övningen görs</summary>
+    <summary>Visa hur övningen görs ${icon('expand')}</summary>
     <div class="how-imgs">
       <figure><img src="bilder/${esc(ex.id)}-0.jpg" alt="${esc(ex.name)}, startläge" loading="lazy" width="480" height="320"><figcaption>Start</figcaption></figure>
       <figure><img src="bilder/${esc(ex.id)}-1.jpg" alt="${esc(ex.name)}, slutläge" loading="lazy" width="480" height="320"><figcaption>Slut</figcaption></figure>
@@ -168,7 +185,7 @@ function weekPicker() {
 
 function dayCard(s, primary) {
   const week = activeWeek();
-  return `<button type="button" class="btn ${primary ? 'primary' : ''}" data-action="start" data-day="${s.day}">
+  return `<button type="button" class="btn day ${primary ? 'primary' : ''}" data-action="start" data-day="${s.day}">
     ${esc(dayTitle(s))}
     <span class="sub">${exercisesFor(s, week).map(id => esc(exName(id))).join(', ')}</span>
   </button>`;
@@ -195,7 +212,7 @@ function viewHem() {
       <h2>${today ? 'Andra pass' : 'Välj pass'}</h2>
       <div class="stack">
         ${SCHEDULE.filter(s => s !== today).map(s => dayCard(s, false)).join('')}
-        <button type="button" class="btn ghost" data-action="start">Tomt pass – välj övningar själv</button>
+        <button type="button" class="btn ghost" data-action="start">${icon('add')} Tomt pass – välj övningar själv</button>
       </div>
     </section>`;
   }
@@ -237,7 +254,7 @@ function viewPass() {
           <h4 id="ex-name-${i}">${esc(name)}</h4>
           ${exPart(e.exId) ? `<span class="chip">${esc(exPart(e.exId))}</span>` : ''}
         </div>
-        <button type="button" class="icon-btn" data-action="remove-ex" data-i="${i}" aria-label="Ta bort ${esc(name)}">✕</button>
+        <button type="button" class="icon-btn" data-action="remove-ex" data-i="${i}" aria-label="Ta bort ${esc(name)}">${icon('close')}</button>
       </div>
       <p class="goal">Mål: ${DEFAULT_SETS} set × ${repsFor(e.exId)} ${unit}</p>
       ${prev ? `<p class="muted">Förra gången, sista setet: <strong>${esc(formatResult(prev, e.exId))}</strong></p>` : ''}
@@ -252,16 +269,16 @@ function viewPass() {
           <input id="reps-${i}" type="text" inputmode="numeric" pattern="[0-9]*" value="${esc(e.reps)}" data-i="${i}" data-field="reps">
         </div>
         <button type="button" class="check" data-action="toggle" data-i="${i}" aria-pressed="${!!e.done}"
-          aria-label="${esc(name)} klar">✓<span class="check-label">Klar</span></button>
+          aria-label="${esc(name)} klar">${icon('check')}<span class="check-label">Klar</span></button>
       </div>
     </section>`;
   });
 
-  h += `<div class="stack">
-    <button type="button" class="btn" data-action="open-picker">+ Lägg till övning</button>
+  h += `<div class="stack pass-actions">
     <button type="button" class="btn primary" data-action="finish">Avsluta och spara passet</button>
     <button type="button" class="btn ghost danger" data-action="cancel">Avbryt passet</button>
-  </div>`;
+  </div>
+  <button type="button" class="fab" data-action="open-picker">${icon('add')} Lägg till övning</button>`;
   return h;
 }
 
@@ -293,7 +310,7 @@ function viewHistorik() {
     h += `<section class="card">
       <div class="ex-head">
         <h3>${esc(dateStr(p.start))}</h3>
-        <button type="button" class="icon-btn" data-action="delete-pass" data-id="${esc(p.id)}" aria-label="Radera passet ${esc(dateStr(p.start))}">✕</button>
+        <button type="button" class="icon-btn" data-action="delete-pass" data-id="${esc(p.id)}" aria-label="Radera passet ${esc(dateStr(p.start))}">${icon('close')}</button>
       </div>
       <p class="muted">${p.title ? `${esc(p.title)} · ` : ''}${minutesBetween(p.start, p.end)} min</p>
       <ul class="plain">
@@ -328,7 +345,7 @@ function viewOvningar() {
             <span>${esc(e.name)}
               <span class="muted small">${[e.part, best ? `bästa ${fmtNum(best)} kg` : ''].filter(Boolean).map(esc).join(' · ')}</span>
             </span>
-            ${custom ? `<button type="button" class="icon-btn" data-action="delete-custom" data-id="${esc(e.id)}" aria-label="Radera ${esc(e.name)}">✕</button>` : ''}
+            ${custom ? `<button type="button" class="icon-btn" data-action="delete-custom" data-id="${esc(e.id)}" aria-label="Radera ${esc(e.name)}">${icon('close')}</button>` : ''}
           </div>
           ${howTo(e.id)}
         </li>`;
