@@ -13,7 +13,7 @@ En enkel träningsapp för gymmet. Den fungerar i mobilens webbläsare och kan l
 - **Treveckorsrotation:** 3 övningar per muskelgrupp och pass – en för varje del av muskeln (till exempel främre, sidan och bakre axeln). Övningarna byts varje vecka i en cykel på 3 veckor. Fliken **Schema** visar hela rotationen.
 - **Logga bara sista setet:** Målet är 4 set × 12 reps. Du skriver vikt och hur många reps du orkade i sista setet. Nästa gång ser du det och vikten är ifylld.
 - **Bilder** som visar start- och slutläge för varje övning.
-- **Historik** över alla pass, med tid och total vikt du lyft.
+- **Historik** över alla pass, med vikt och reps i sista setet.
 - **Övningar** sorterade per muskelgrupp, med ditt bästa lyft. Du kan lägga till egna övningar.
 - **Säkerhetskopia** som du kan spara som fil och läsa in igen.
 
