@@ -64,16 +64,34 @@ function minutesBetween(a, b) {
   return Math.max(1, Math.round((new Date(b) - new Date(a)) / 60000));
 }
 
-// "40 kg × 8, 8, 7 · 42,5 kg × 6"
-function formatSets(sets) {
+const unitOf = exId => ((exById(exId) || {}).unit === 'sek' ? 'sek' : 'reps');
+
+// "40 kg × 12, 12, 10 · 42,5 kg × 8"   (för sekunder: "30, 30 sek")
+function formatSets(sets, exId) {
   const parts = [];
   for (const s of sets) {
     const last = parts[parts.length - 1];
     if (last && last.kg === s.kg) last.reps.push(s.reps || 0);
     else parts.push({ kg: s.kg, reps: [s.reps || 0] });
   }
-  return parts.map(p => (p.kg === '' ? '' : `${fmtNum(p.kg)} kg × `) + p.reps.join(', ')).join(' · ');
+  const suffix = unitOf(exId) === 'sek' ? ' sek' : '';
+  return parts.map(p => (p.kg === '' ? '' : `${fmtNum(p.kg)} kg × `) + p.reps.join(', ') + suffix).join(' · ');
 }
+
+// Bilder som visar hur övningen görs (start och slut)
+function howTo(exId) {
+  const ex = exById(exId);
+  if (!ex || !ex.img) return '';
+  return `<details class="how">
+    <summary>Visa hur övningen görs</summary>
+    <div class="how-imgs">
+      <figure><img src="bilder/${esc(ex.id)}-0.jpg" alt="${esc(ex.name)}, startläge" loading="lazy" width="480" height="320"><figcaption>Start</figcaption></figure>
+      <figure><img src="bilder/${esc(ex.id)}-1.jpg" alt="${esc(ex.name)}, slutläge" loading="lazy" width="480" height="320"><figcaption>Slut</figcaption></figure>
+    </div>
+  </details>`;
+}
+
+const todaysTemplate = () => TEMPLATES.find(t => t.day === new Date().getDay());
 
 function volume(pass) {
   return pass.exercises.reduce((sum, e) =>
@@ -125,15 +143,29 @@ function viewHem() {
       <button type="button" class="btn primary" data-action="goto" data-view="pass">Fortsätt passet</button>
     </section>`;
   } else {
+    const today = todaysTemplate();
+    const tplButton = (t, primary) => `
+      <button type="button" class="btn ${primary ? 'primary' : ''}" data-action="start" data-template="${esc(t.id)}">
+        ${esc(t.name)}
+        <span class="sub">${t.exercises.map(id => esc(exName(id))).join(', ')}</span>
+      </button>`;
+
+    if (today) {
+      h += `<section class="card accent">
+        <h2>Dagens pass</h2>
+        ${tplButton(today, true)}
+      </section>`;
+    } else {
+      h += `<section class="card accent">
+        <h2>Vilodag i dag</h2>
+        <p>Inget pass i schemat i dag. Vill du träna ändå? Välj ett pass nedanför.</p>
+      </section>`;
+    }
     h += `<section class="card">
-      <h2>Starta ett pass</h2>
+      <h2>${today ? 'Andra pass' : 'Välj pass'}</h2>
       <div class="stack">
-        ${TEMPLATES.map(t => `
-          <button type="button" class="btn primary" data-action="start" data-template="${esc(t.id)}">
-            ${esc(t.name)}
-            <span class="sub">${t.exercises.map(id => esc(exName(id))).join(', ')}</span>
-          </button>`).join('')}
-        <button type="button" class="btn" data-action="start">Tomt pass – välj övningar själv</button>
+        ${TEMPLATES.filter(t => t !== today).map(t => tplButton(t, false)).join('')}
+        <button type="button" class="btn ghost" data-action="start">Tomt pass – välj övningar själv</button>
       </div>
     </section>`;
   }
@@ -162,15 +194,17 @@ function viewPass() {
   a.exercises.forEach((e, i) => {
     const name = exName(e.exId);
     const prev = lastSetsFor(e.exId);
+    const unitLabel = unitOf(e.exId) === 'sek' ? 'Sek' : 'Reps';
     h += `<section class="card ex" id="ex-${i}">
       <div class="ex-head">
         <h3>${esc(name)}</h3>
         <button type="button" class="icon-btn" data-action="remove-ex" data-i="${i}" aria-label="Ta bort ${esc(name)}">✕</button>
       </div>
-      ${prev ? `<p class="muted">Förra gången: ${esc(formatSets(prev))}</p>` : ''}
+      ${prev ? `<p class="muted">Förra gången: ${esc(formatSets(prev, e.exId))}</p>` : ''}
+      ${howTo(e.exId)}
       <table class="sets">
         <caption class="sr-only">Set för ${esc(name)}</caption>
-        <thead><tr><th scope="col">Set</th><th scope="col">Kg</th><th scope="col">Reps</th><th scope="col">Klar</th></tr></thead>
+        <thead><tr><th scope="col">Set</th><th scope="col">Kg</th><th scope="col">${unitLabel}</th><th scope="col">Klar</th></tr></thead>
         <tbody>
         ${e.sets.map((s, j) => `
           <tr class="${s.done ? 'done' : ''}">
@@ -178,7 +212,7 @@ function viewPass() {
             <td><input type="text" inputmode="decimal" value="${esc(fmtNum(s.kg))}"
                  data-i="${i}" data-j="${j}" data-field="kg" aria-label="Kilo, set ${j + 1}"></td>
             <td><input type="text" inputmode="numeric" pattern="[0-9]*" value="${esc(s.reps)}"
-                 data-i="${i}" data-j="${j}" data-field="reps" aria-label="Reps, set ${j + 1}"></td>
+                 data-i="${i}" data-j="${j}" data-field="reps" aria-label="${unitLabel}, set ${j + 1}"></td>
             <td><button type="button" class="check" data-action="toggle" data-i="${i}" data-j="${j}"
                  aria-pressed="${s.done}" aria-label="Set ${j + 1} klart">✓</button></td>
           </tr>`).join('')}
@@ -211,7 +245,7 @@ function viewHistorik() {
       </div>
       <p class="muted">${minutesBetween(p.start, p.end)} min · totalt ${fmtNum(Math.round(volume(p)))} kg lyft</p>
       <ul class="plain">
-        ${p.exercises.map(e => `<li><strong>${esc(exName(e.exId))}</strong>: ${esc(formatSets(e.sets))}</li>`).join('')}
+        ${p.exercises.map(e => `<li><strong>${esc(exName(e.exId))}</strong>: ${esc(formatSets(e.sets, e.exId))}</li>`).join('')}
       </ul>
     </section>`;
   });
@@ -294,10 +328,18 @@ function show(v) {
 
 // ---------- Åtgärder ----------
 
+// Nya set: alltid DEFAULT_SETS st med målet DEFAULT_REPS.
+// Kilona hämtas från förra gången, så du ser direkt vad du ska lyfta.
 function newSetsFor(exId) {
-  const prev = lastSetsFor(exId);
-  if (prev) return prev.map(s => ({ kg: s.kg, reps: s.reps, done: false }));
-  return [1, 2, 3].map(() => ({ kg: '', reps: '', done: false }));
+  const ex = exById(exId) || {};
+  const reps = ex.defaultReps || DEFAULT_REPS;
+  const prev = lastSetsFor(exId) || [];
+  const lastKg = prev.length ? prev[prev.length - 1].kg : '';
+  return Array.from({ length: DEFAULT_SETS }, (_, k) => ({
+    kg: prev[k] ? prev[k].kg : lastKg,
+    reps,
+    done: false,
+  }));
 }
 
 function startPass(templateId) {
@@ -346,7 +388,10 @@ function renderPicker() {
     const list = allExercises().filter(e => e.group === g && e.name.toLowerCase().includes(q));
     if (!list.length) return;
     h += `<h3>${esc(g)}</h3><div class="stack">
-      ${list.map(e => `<button type="button" class="btn small" data-action="pick" data-id="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
+      ${list.map(e => `<button type="button" class="btn small pick" data-action="pick" data-id="${esc(e.id)}">
+        ${e.img ? `<img src="bilder/${esc(e.id)}-0.jpg" alt="" loading="lazy" width="64" height="43">` : ''}
+        <span>${esc(e.name)}</span>
+      </button>`).join('')}
     </div>`;
   });
   $pickerList.innerHTML = h || '<p>Ingen övning hittades. Lägg till den under Övningar.</p>';
