@@ -133,6 +133,68 @@ main { max-width: 640px; margin: 0 auto; padding: 1rem; outline: none; }
 }
 .check[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-text); }
 
+/* Sista setet: kg, reps och Klar på en rad */
+.last-set { display: grid; grid-template-columns: 1fr 1fr auto; gap: .5rem; align-items: end; margin-top: .25rem; }
+.field { display: flex; flex-direction: column; gap: .2rem; }
+.field label { font-size: .85rem; font-weight: 600; color: var(--muted); }
+.field input { width: 100%; text-align: center; font-size: 1.15rem; }
+.last-set .check {
+  width: 72px;
+  height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  line-height: 1;
+}
+.check-label { font-size: .8rem; font-weight: 600; margin-top: .15rem; }
+.last-set .check[aria-pressed="true"] { color: var(--brand-text); }
+.card.ex.is-done { border-color: var(--brand); background: var(--brand-soft); }
+.card.ex.is-done .field input { border-color: var(--brand); }
+
+h4 { font-size: 1.05rem; margin: 0 0 .25rem; }
+.group-head { margin: 1.25rem 0 .5rem; color: var(--muted); font-size: .95rem; text-transform: uppercase; letter-spacing: .04em; }
+.chip {
+  display: inline-block;
+  font-size: .8rem;
+  padding: .1rem .5rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+}
+.goal { margin: .5rem 0 .25rem; font-weight: 600; }
+.small { font-size: .85rem; display: block; }
+.li-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+
+/* Välj vecka i rotationen */
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; margin-bottom: .75rem; }
+.seg button {
+  min-height: 48px;
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.seg button .sub { font-size: .75rem; font-weight: 400; color: var(--muted); }
+.seg button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand); color: var(--brand-text); }
+.seg button[aria-pressed="true"] .sub { color: var(--brand-text); }
+
+/* Schemat */
+.weeks { list-style: none; padding: 0; margin: 0 0 .5rem; }
+.weeks > li { padding: .5rem .6rem; border-radius: 8px; margin-bottom: .3rem; }
+.weeks > li.now { background: var(--brand-soft); }
+.weeks .wk { font-weight: 700; font-size: .9rem; }
+.btn.pick .sub { display: block; }
+
 /* Bilder på hur övningen görs */
 .how { margin: .25rem 0 .5rem; }
 .how summary {
@@ -167,8 +229,8 @@ input[type="text"], input[type="search"], select {
 /* Listor och statistik */
 .plain { list-style: none; padding: 0; margin: 0; }
 .plain li { padding: .25rem 0; }
-.list li { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); min-height: 44px; }
-.list li:first-child { border-top: none; }
+.list > li { display: block; border-top: 1px solid var(--line); padding: .4rem 0; }
+.list > li:first-child { border-top: none; }
 
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin: 0 0 .75rem; }
 .stats div { background: var(--bg); border-radius: 10px; padding: .6rem .8rem; }
