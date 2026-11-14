@@ -64,6 +64,7 @@ const ICONS = {
   close: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
   expand: 'M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z',
   play: 'M8 5v14l11-7z',
+  search: 'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
 };
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${ICONS[name]}"/></svg>`;
 document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
@@ -331,11 +332,48 @@ function viewHistorik() {
   return h;
 }
 
+// Sök och filter under Övningar (sparas bara medan appen är öppen)
+let exQuery = '';
+let exFilter = null; // null = alla muskelgrupper
+
 function viewOvningar() {
-  let h = '<h2>Övningar</h2>';
-  allGroups().forEach(g => {
-    const list = allExercises().filter(e => e.group === g);
+  let h = `<h2>Övningar</h2>
+    <div class="search-field">
+      ${icon('search')}
+      <label for="ex-search" class="sr-only">Sök övning eller muskeldel</label>
+      <input id="ex-search" type="search" placeholder="Sök övning eller muskeldel …" autocomplete="off" value="${esc(exQuery)}">
+    </div>
+    <div class="chips" role="group" aria-label="Filtrera på muskelgrupp">
+      ${[null, ...allGroups()].map(g => `<button type="button" class="filter-chip" data-action="filter-group"
+        data-group="${esc(g ?? '')}" aria-pressed="${exFilter === g}">${exFilter === g ? icon('check') : ''}${esc(g ?? 'Alla')}</button>`).join('')}
+    </div>
+    <p id="ex-count" class="muted small" aria-live="polite"></p>
+    <div id="ex-list"></div>`;
+  h += `<section class="card">
+    <h2>Lägg till egen övning</h2>
+    <form id="add-ex-form" class="stack">
+      <label for="new-ex-name">Namn</label>
+      <input id="new-ex-name" name="exname" type="text" required maxlength="40" autocomplete="off">
+      <label for="new-ex-group">Muskelgrupp</label>
+      <select id="new-ex-group" name="exgroup">${GROUPS.map(g => `<option>${esc(g)}</option>`).join('')}</select>
+      <button type="submit" class="btn primary">Lägg till</button>
+    </form>
+  </section>`;
+  return h;
+}
+
+function renderExList() {
+  const $list = document.getElementById('ex-list');
+  if (!$list) return;
+  const q = exQuery.trim().toLowerCase();
+  const matches = e => !q || e.name.toLowerCase().includes(q) || (e.part || '').toLowerCase().includes(q)
+    || e.group.toLowerCase().includes(q);
+  let h = '';
+  let count = 0;
+  allGroups().filter(g => exFilter == null || g === exFilter).forEach(g => {
+    const list = allExercises().filter(e => e.group === g && matches(e));
     if (!list.length) return;
+    count += list.length;
     h += `<section class="card"><h3>${esc(g)}</h3><ul class="plain list">
       ${list.map(e => {
         const best = bestFor(e.id);
@@ -352,18 +390,8 @@ function viewOvningar() {
       }).join('')}
     </ul></section>`;
   });
-
-  h += `<section class="card">
-    <h2>Lägg till egen övning</h2>
-    <form id="add-ex-form" class="stack">
-      <label for="new-ex-name">Namn</label>
-      <input id="new-ex-name" name="exname" type="text" required maxlength="40" autocomplete="off">
-      <label for="new-ex-group">Muskelgrupp</label>
-      <select id="new-ex-group" name="exgroup">${GROUPS.map(g => `<option>${esc(g)}</option>`).join('')}</select>
-      <button type="submit" class="btn primary">Lägg till</button>
-    </form>
-  </section>`;
-  return h;
+  $list.innerHTML = h || '<section class="card"><p>Ingen övning matchar. Prova ett annat ord, eller lägg till en egen övning nedanför.</p></section>';
+  document.getElementById('ex-count').textContent = count === 1 ? '1 övning' : `${count} övningar`;
 }
 
 const VIEWS = { hem: viewHem, pass: viewPass, schema: viewSchema, historik: viewHistorik, ovningar: viewOvningar };
@@ -376,6 +404,7 @@ function render() {
     else b.removeAttribute('aria-current');
   });
   $main.innerHTML = VIEWS[view]();
+  if (view === 'ovningar') renderExList();
 }
 
 // Rita om men behåll fokus på samma knapp/fält
@@ -385,7 +414,7 @@ function rerender() {
   if (el && $main.contains(el)) {
     if (el.id) sel = `#${CSS.escape(el.id)}`;
     else if (el.dataset && el.dataset.action) {
-      sel = ['action', 'i', 'week'].filter(k => el.dataset[k] != null)
+      sel = ['action', 'i', 'week', 'group'].filter(k => el.dataset[k] != null)
         .map(k => `[data-${k}="${el.dataset[k]}"]`).join('');
     }
   }
@@ -518,6 +547,10 @@ document.addEventListener('click', ev => {
 
   switch (action) {
     case 'goto': show(btn.dataset.view); break;
+    case 'filter-group':
+      exFilter = btn.dataset.group || null;
+      rerender();
+      break;
     case 'week': chosenWeek = Number(btn.dataset.week); rerender(); break;
     case 'start': startPass(btn.dataset.day); break;
 
@@ -572,6 +605,11 @@ document.addEventListener('click', ev => {
 // Spara direkt när du skriver kilo eller reps
 $main.addEventListener('input', ev => {
   const el = ev.target;
+  if (el.id === 'ex-search') {
+    exQuery = el.value;
+    renderExList();
+    return;
+  }
   if (!el.dataset.field || !state.active) return;
   const e = state.active.exercises[Number(el.dataset.i)];
   if (el.dataset.field === 'kg') e.kg = parseNum(el.value);
