@@ -79,10 +79,12 @@ function esc(v) {
   }[c]));
 }
 
-const allExercises = () => EXERCISES.concat(state.custom);
+// Övningar som visas i listor och sök (dolda övningar räknas inte med)
+const allExercises = () => EXERCISES.filter(e => !e.hidden).concat(state.custom);
 // Muskelgrupper att visa – plus grupper från egna övningar som inte finns i listan
 const allGroups = () => GROUPS.concat([...new Set(state.custom.map(c => c.group))].filter(g => !GROUPS.includes(g)));
-const exById = id => allExercises().find(e => e.id === id);
+// Hittar även dolda övningar, så att gamla pass visar rätt namn
+const exById = id => EXERCISES.concat(state.custom).find(e => e.id === id);
 const exName = id => (exById(id) || { name: 'Okänd övning' }).name;
 const exPart = id => (exById(id) || {}).part || '';
 const exGroup = id => (exById(id) || {}).group || 'Övrigt';
