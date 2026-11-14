@@ -54,6 +54,7 @@ const EXERCISES = [
   // Triceps
   { id: 'triceps-overhead', name: 'Tricepsextension över huvudet', group: 'Triceps', part: 'Långa huvudet', img: 'Cable_Rope_Overhead_Triceps_Extension' },
   { id: 'skullcrusher', name: 'Skullcrusher', group: 'Triceps', part: 'Långa huvudet', img: 'EZ-Bar_Skullcrusher' },
+  { id: 'skullcrusher-hantlar', name: 'Skullcrusher med hantlar och armbågsstöd', group: 'Triceps', part: 'Långa huvudet', img: 'Lying_Dumbbell_Tricep_Extension' },
   { id: 'triceps-hantel-overhead', name: 'Tricepsextension med hantel', group: 'Triceps', part: 'Långa huvudet', img: 'Standing_Dumbbell_Triceps_Extension' },
   { id: 'triceps-pushdown', name: 'Triceps pushdown', group: 'Triceps', part: 'Yttre huvudet', img: 'Triceps_Pushdown' },
   { id: 'triceps-rep', name: 'Triceps pushdown med rep', group: 'Triceps', part: 'Yttre huvudet', img: 'Triceps_Pushdown_-_Rope_Attachment' },
