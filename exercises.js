@@ -58,6 +58,7 @@ const EXERCISES = [
   { id: 'dips', name: 'Dips', group: 'Triceps', part: 'Yttre huvudet', img: 'Dips_-_Triceps_Version' },
   { id: 'triceps-omvant', name: 'Pushdown med omvänt grepp', group: 'Triceps', part: 'Inre huvudet', img: 'Reverse_Grip_Triceps_Pushdown' },
   { id: 'bankpress-smalt', name: 'Bänkpress med smalt grepp', group: 'Triceps', part: 'Inre huvudet', img: 'Close-Grip_Barbell_Bench_Press' },
+  { id: 'tate-press', name: 'Tate press', group: 'Triceps', part: 'Inre huvudet', img: 'Tate_Press' },
   { id: 'kickbacks', name: 'Kickbacks med hantel', group: 'Triceps', part: 'Inre huvudet', img: 'Tricep_Dumbbell_Kickback' },
   { id: 'bankdips', name: 'Bänkdips', group: 'Triceps', part: 'Inre huvudet', img: 'Bench_Dips' },
 
@@ -140,7 +141,7 @@ const ROTATION = {
   Triceps: [
     ['triceps-overhead', 'triceps-pushdown', 'triceps-omvant'],
     ['skullcrusher', 'triceps-rep', 'bankpress-smalt'],
-    ['triceps-hantel-overhead', 'dips', 'kickbacks'],
+    ['triceps-hantel-overhead', 'dips', 'tate-press'],
   ],
   Bröst: [
     ['hantelpress-lutande', 'bankpress', 'flyes-kabel'],
