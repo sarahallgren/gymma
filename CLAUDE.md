@@ -9,3 +9,6 @@
 - Övningarnas `id` i `exercises.js` får inte ändras, eftersom historiken pekar på dem.
 - Mobilen först: tryckytor minst 44 px, fungerar med skärmläsare och tangentbord, stöd för mörkt läge.
 - Arbeta i en egen gren och öppna en pull request, så att Sara kan granska innan något hamnar på main.
+- Färgteman: fem lugna teman (gron, rosa, bla, gra, sand) som CSS-variabler överst i `style.css`, i ljus och mörk variant. Valet sparas i `settings.theme`. Nya färger ska klara WCAG AA (4,5:1 för text).
+- Passvyn visar en öppen övning i taget. Vilken som är öppen är bara skärmläge och sparas inte.
+- Testa i en webbläsare med mobilbredd (320–390 px) innan du öppnar en pull request: hela passflödet, gamla sparade data och båda färglägena.

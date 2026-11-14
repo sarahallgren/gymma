@@ -11,10 +11,13 @@ En enkel träningsapp för gymmet. Den fungerar i mobilens webbläsare och kan l
   - Torsdag: vila
   - Fredag: ben och mage
 - **Treveckorsrotation:** 3 övningar per muskelgrupp och pass – en för varje del av muskeln (till exempel främre, sidan och bakre axeln). Övningarna byts varje vecka i en cykel på 3 veckor. Fliken **Schema** visar hela rotationen.
-- **Logga bara sista setet:** Målet är 4 set × 12 reps. Du skriver vikt och hur många reps du orkade i sista setet. Nästa gång ser du det och vikten är ifylld.
+- **Logga bara sista setet:** Målet är 4 set × 12 reps. En övning i taget är öppen. Du ställer in vikt och reps med plus och minus och trycker **Klar**. Klara övningar krymper till en rad.
+- **Förslag på högre vikt:** Klarade du alla reps förra gången föreslår appen nästa vikt.
+- **Veckorad** på startsidan som visar vilka dagar du har tränat.
 - **Bilder** som visar start- och slutläge för varje övning.
-- **Historik** över alla pass, med vikt och reps i sista setet.
-- **Övningar** sorterade per muskelgrupp, med ditt bästa lyft. Du kan lägga till egna övningar.
+- **Historik** per månad. Varje pass går att fälla ut och visar om du har ökat sedan förra gången.
+- **Övningar** med sök och filter. Varje övning visar senaste resultat, bästa vikt, plats i schemat och en kurva över utvecklingen. Du kan lägga till egna övningar.
+- **Färgteman:** Grön, rosa, blå, grå och sand. Byt med palettknappen uppe till höger. Ljust eller mörkt läge följer mobilens inställning.
 - **Säkerhetskopia** som du kan spara som fil och läsa in igen.
 
 ## Var sparas mina pass?
@@ -39,7 +42,7 @@ Det betyder att passen försvinner om du rensar webbläsarens data eller byter m
 | Fil | Vad den innehåller |
 |---|---|
 | `index.html` | Sidans grundstruktur |
-| `style.css` | Utseende: färger, knappar, mörkt läge |
+| `style.css` | Utseende: färgteman (överst i filen), knappar, mörkt läge |
 | `exercises.js` | Övningar, veckoschema, rotationen (`ROTATION`) och antal set/reps – enklast att ändra här |
 | `bilder/` | Två bilder per övning (start och slut) |
 | `app.js` | All logik: pass, set, historik, sparande |

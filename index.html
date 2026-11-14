@@ -1,18 +1,24 @@
 <!doctype html>
-<html lang="sv">
+<html lang="sv" data-theme="gron">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Gymma</title>
   <meta name="description" content="Logga dina gympass: övningar, vikt och reps.">
-  <meta name="theme-color" content="#eaefea" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1b211e" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" id="theme-color" content="#e7efea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Gymma">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Sätter det sparade färgtemat direkt, så att sidan inte blinkar till i fel färg.
+    try {
+      var t = JSON.parse(localStorage.getItem('gymma-v1')).settings.theme;
+      if (t) document.documentElement.setAttribute('data-theme', t);
+    } catch (e) { /* inget sparat än */ }
+  </script>
 </head>
 <body>
   <a class="skip" href="#main">Hoppa till innehållet</a>
@@ -20,6 +26,7 @@
   <header class="top">
     <span data-icon="fitness"></span>
     <h1>Gymma</h1>
+    <button type="button" class="icon-btn" data-action="open-theme" aria-label="Byt färgtema" aria-haspopup="dialog"><span data-icon="palette"></span></button>
   </header>
 
   <main id="main" tabindex="-1"></main>
@@ -35,11 +42,20 @@
   <dialog id="picker" aria-labelledby="picker-title">
     <div class="picker-head">
       <h2 id="picker-title">Lägg till övning</h2>
-      <button type="button" class="icon-btn" data-action="close-picker" aria-label="Stäng"><span data-icon="close"></span></button>
+      <button type="button" class="icon-btn" data-action="close-dialog" aria-label="Stäng"><span data-icon="close"></span></button>
     </div>
     <label for="picker-search" class="sr-only">Sök övning</label>
     <input id="picker-search" type="search" placeholder="Sök övning …" autocomplete="off">
     <div id="picker-list"></div>
+  </dialog>
+
+  <dialog id="theme-dialog" aria-labelledby="theme-title">
+    <div class="picker-head">
+      <h2 id="theme-title">Färgtema</h2>
+      <button type="button" class="icon-btn" data-action="close-dialog" aria-label="Stäng"><span data-icon="close"></span></button>
+    </div>
+    <p class="muted">Välj färg. Ljust eller mörkt läge följer mobilens inställning.</p>
+    <div id="theme-list" class="theme-list" role="group" aria-label="Välj färgtema"></div>
   </dialog>
 
   <div id="status" class="toast" role="status" aria-live="polite"></div>
