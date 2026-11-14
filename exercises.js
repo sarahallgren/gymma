@@ -6,6 +6,7 @@
 // Varje övning har två bilder i mappen bilder/: <id>-0.jpg (start) och <id>-1.jpg (slut).
 // "img" är övningens namn i Free Exercise DB. "part" är vilken del av muskeln övningen tar mest.
 // "unit: 'sek'" betyder att övningen mäts i sekunder i stället för reps.
+// "hidden: true" tar bort övningen från listor och sök, men gamla pass visar fortfarande namnet.
 
 // Mål för varje övning: 4 set med 12 reps. Du loggar bara sista setet.
 const DEFAULT_SETS = 4;
@@ -31,7 +32,8 @@ const EXERCISES = [
   { id: 'vadpress', name: 'Stående vadpress', group: 'Vader', part: 'Raka ben – stora vadmuskeln', img: 'Standing_Calf_Raises' },
   { id: 'vadpress-benpress', name: 'Vadpress i benpress', group: 'Vader', part: 'Raka ben – stora vadmuskeln', img: 'Calf_Press_On_The_Leg_Press_Machine' },
   { id: 'vadpress-hantel', name: 'Stående vadpress med hantlar', group: 'Vader', part: 'Raka ben – stora vadmuskeln', img: 'Standing_Dumbbell_Calf_Raise' },
-  { id: 'asnevadpress', name: 'Åsnevadpress', group: 'Vader', part: 'Raka ben – stora vadmuskeln', img: 'Donkey_Calf_Raises' },
+  // Borttagen (hidden) – finns kvar så att gamla pass visar rätt namn
+  { id: 'asnevadpress', name: 'Åsnevadpress', group: 'Vader', part: 'Raka ben – stora vadmuskeln', img: 'Donkey_Calf_Raises', hidden: true },
   { id: 'vadpress-stang', name: 'Stående vadpress med stång', group: 'Vader', part: 'Raka ben – stora vadmuskeln', img: 'Standing_Barbell_Calf_Raise' },
   { id: 'sittande-vadpress', name: 'Sittande vadpress', group: 'Vader', part: 'Böjda knän – djupa vadmuskeln', img: 'Seated_Calf_Raise' },
   { id: 'sittande-vadpress-hantel', name: 'Sittande vadpress med hantel', group: 'Vader', part: 'Böjda knän – djupa vadmuskeln', img: 'Dumbbell_Seated_One-Leg_Calf_Raise' },
@@ -130,7 +132,7 @@ const ROTATION = {
   ],
   Vader: [
     ['vadpress', 'vadpress-benpress', 'sittande-vadpress'],
-    ['vadpress-hantel', 'asnevadpress', 'sittande-vadpress-hantel'],
+    ['vadpress-hantel', 'vadpress-benpress', 'sittande-vadpress-hantel'],
     ['vadpress-stang', 'vadpress-benpress', 'sittande-vadpress-stang'],
   ],
   Rygg: [
