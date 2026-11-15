@@ -16,7 +16,7 @@ En enkel träningsapp för gymmet. Den fungerar i mobilens webbläsare och kan l
 - **Veckorad** på startsidan som visar vilka dagar du har tränat.
 - **Bilder** som visar start- och slutläge för varje övning.
 - **Historik** per månad. Varje pass går att fälla ut och visar om du har ökat sedan förra gången.
-- **Övningar** med sök och filter. Varje övning visar senaste resultat, bästa vikt, plats i schemat och en kurva över utvecklingen. Du kan lägga till egna övningar.
+- **Övningar** med sök och filter på muskelgrupp och redskap (maskin, kabel, hantlar, stång eller kroppsvikt). Redskapet visas som en liten etikett på varje övning. Varje övning visar senaste resultat, bästa vikt, plats i schemat och en kurva över utvecklingen. Du kan lägga till egna övningar.
 - **Färgteman:** Grön, rosa, blå, grå och sand. Byt med palettknappen uppe till höger. Ljust eller mörkt läge följer mobilens inställning.
 - **Säkerhetskopia** som du kan spara som fil och läsa in igen.
 

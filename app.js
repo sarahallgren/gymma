@@ -135,6 +135,29 @@ const exById = id => EXERCISES.concat(state.custom).find(e => e.id === id);
 const exName = id => (exById(id) || { name: 'Okänd övning' }).name;
 const exPart = id => (exById(id) || {}).part || '';
 const exGroup = id => (exById(id) || {}).group || 'Övrigt';
+const eqById = id => EQUIPMENT.find(q => q.id === id);
+const exEq = id => eqById((exById(id) || {}).eq);
+
+// Ikoner för redskap (linjeikoner, ritade för Gymma)
+const EQ_ICONS = {
+  maskin: '<rect x="4" y="3" width="6" height="18" rx="1"/><path d="M4 8h6M4 13h6M10 6h7v9M14 15h6"/>',
+  kabel: '<circle cx="7" cy="6" r="3"/><path d="M7 9v6l8 5M15 20h5"/>',
+  hantlar: '<path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12"/>',
+  stang: '<path d="M2 12h20M5 8v8M8 6v12M16 6v12M19 8v8"/>',
+  kropp: '<circle cx="12" cy="5" r="2.5"/><path d="M12 8v7M7 10l5 1 5-1M12 15l-3 6M12 15l3 6"/>',
+};
+const eqIcon = id => `<svg class="eq-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${EQ_ICONS[id] || ''}</svg>`;
+// Liten etikett som visar redskapet, t.ex. [ikon] Hantlar
+function eqTag(exId) {
+  const q = exEq(exId);
+  return q ? `<span class="eq">${eqIcon(q.id)}${esc(q.name)}</span>` : '';
+}
+// Söker i namn, muskeldel, muskelgrupp och redskap
+function exMatches(e, q) {
+  if (!q) return true;
+  const eq = eqById(e.eq);
+  return [e.name, e.part, e.group, eq && eq.name].some(t => (t || '').toLowerCase().includes(q));
+}
 const isSek = id => (exById(id) || {}).unit === 'sek';
 const unitOf = id => (isSek(id) ? 'sek' : 'reps');
 const repsFor = id => (exById(id) || {}).defaultReps || DEFAULT_REPS;
@@ -455,6 +478,7 @@ function activeCard(e, i) {
       ${picture}
       <div class="grow">
         <h4 id="ex-name-${i}" tabindex="-1">${esc(name)}</h4>
+        ${eqTag(e.exId) ? `<div class="eq-line">${eqTag(e.exId)}</div>` : ''}
         ${exPart(e.exId) ? `<span class="chip">${esc(exPart(e.exId))}</span>` : ''}
         <span class="chip">${DEFAULT_SETS} × ${repsFor(e.exId)} ${unitOf(e.exId)}</span>
       </div>
@@ -482,7 +506,7 @@ function passRow(e, i) {
   const prev = lastResultFor(e.exId);
   return `<button type="button" class="card row-card" id="ex-${i}" data-action="open-ex" data-i="${i}">
     ${thumb(e.exId)}
-    <span class="txt"><span class="name">${esc(name)}</span><span class="meta">${prev ? `Förra: ${esc(formatResult(prev, e.exId))}` : esc(exPart(e.exId) || 'Inte loggad än')}</span></span>
+    <span class="txt"><span class="name">${esc(name)}</span><span class="meta">${eqTag(e.exId)}${prev ? `Förra: ${esc(formatResult(prev, e.exId))}` : esc(exPart(e.exId) || 'Inte loggad än')}</span></span>
     ${icon('expand')}
   </button>`;
 }
@@ -613,17 +637,24 @@ function viewHistorik() {
 // Sök och filter under Övningar (sparas bara medan appen är öppen)
 let exQuery = '';
 let exFilter = null; // null = alla muskelgrupper
+let eqFilter = null; // null = alla redskap
 
 function viewOvningar() {
   return `<h2>Övningar</h2>
     <div class="search-field">
       ${icon('search')}
-      <label for="ex-search" class="sr-only">Sök övning eller muskeldel</label>
-      <input id="ex-search" type="search" placeholder="Sök övning eller muskeldel …" autocomplete="off" value="${esc(exQuery)}">
+      <label for="ex-search" class="sr-only">Sök övning, muskel eller redskap</label>
+      <input id="ex-search" type="search" placeholder="Sök övning, muskel eller redskap …" autocomplete="off" value="${esc(exQuery)}">
     </div>
-    <div class="chips" role="group" aria-label="Filtrera på muskelgrupp">
+    <p class="chips-label" id="lbl-group">Muskelgrupp</p>
+    <div class="chips" role="group" aria-labelledby="lbl-group">
       ${[null, ...allGroups()].map(g => `<button type="button" class="filter-chip" data-action="filter-group"
         data-group="${esc(g ?? '')}" aria-pressed="${exFilter === g}">${exFilter === g ? icon('check') : ''}${esc(g ?? 'Alla')}</button>`).join('')}
+    </div>
+    <p class="chips-label" id="lbl-eq">Redskap</p>
+    <div class="chips" role="group" aria-labelledby="lbl-eq">
+      ${[null, ...EQUIPMENT].map(q => `<button type="button" class="filter-chip" data-action="filter-eq"
+        data-eq="${q ? q.id : ''}" aria-pressed="${eqFilter === (q ? q.id : null)}">${eqFilter === (q ? q.id : null) ? icon('check') : (q ? eqIcon(q.id) : '')}${esc(q ? q.name : 'Alla')}</button>`).join('')}
     </div>
     <p id="ex-count" class="muted small" aria-live="polite"></p>
     <div id="ex-list"></div>
@@ -634,6 +665,8 @@ function viewOvningar() {
         <input id="new-ex-name" name="exname" type="text" required maxlength="40" autocomplete="off">
         <label for="new-ex-group">Muskelgrupp</label>
         <select id="new-ex-group" name="exgroup">${GROUPS.map(g => `<option>${esc(g)}</option>`).join('')}</select>
+        <label for="new-ex-eq">Redskap</label>
+        <select id="new-ex-eq" name="exeq">${EQUIPMENT.map(q => `<option value="${q.id}">${esc(q.name)}</option>`).join('')}<option value="">Annat</option></select>
         <button type="submit" class="btn primary">Lägg till</button>
       </form>
     </section>`;
@@ -678,7 +711,7 @@ function exerciseItem(ex, results) {
   return `<details class="ex-item">
     <summary>
       ${thumb(ex.id)}
-      <span class="txt"><span class="name">${esc(ex.name)}</span>${meta ? `<span class="meta">${esc(meta)}</span>` : ''}</span>
+      <span class="txt"><span class="name">${esc(ex.name)}</span>${meta || ex.eq ? `<span class="meta">${eqTag(ex.id)}${esc(meta)}</span>` : ''}</span>
       <span class="chev">${icon('expand')}</span>
     </summary>
     <div class="detail">
@@ -698,8 +731,7 @@ function renderExList() {
   const $list = document.getElementById('ex-list');
   if (!$list) return;
   const q = exQuery.trim().toLowerCase();
-  const matches = e => !q || e.name.toLowerCase().includes(q) || (e.part || '').toLowerCase().includes(q)
-    || e.group.toLowerCase().includes(q);
+  const matches = e => exMatches(e, q) && (eqFilter == null || e.eq === eqFilter);
   const results = resultsByExercise();
   let h = '';
   let count = 0;
@@ -737,7 +769,7 @@ function rerender() {
   if (el && $main.contains(el)) {
     if (el.id) sel = `#${CSS.escape(el.id)}`;
     else if (el.dataset && el.dataset.action) {
-      sel = ['action', 'i', 'field', 'dir', 'group', 'day', 'id'].filter(k => el.dataset[k] != null)
+      sel = ['action', 'i', 'field', 'dir', 'group', 'eq', 'day', 'id'].filter(k => el.dataset[k] != null)
         .map(k => `[data-${k}="${CSS.escape(el.dataset[k])}"]`).join('');
     }
   }
@@ -860,13 +892,12 @@ function renderPicker() {
   const q = $search.value.trim().toLowerCase();
   let h = '';
   allGroups().forEach(g => {
-    const list = allExercises().filter(e => e.group === g
-      && (e.name.toLowerCase().includes(q) || (e.part || '').toLowerCase().includes(q)));
+    const list = allExercises().filter(e => e.group === g && exMatches(e, q));
     if (!list.length) return;
     h += `<h3>${esc(g)}</h3><div class="stack">
       ${list.map(e => `<button type="button" class="btn small pick" data-action="pick" data-id="${esc(e.id)}">
         ${thumb(e.id)}
-        <span>${esc(e.name)}${e.part ? `<span class="sub">${esc(e.part)}</span>` : ''}</span>
+        <span>${esc(e.name)}<span class="sub">${eqTag(e.id)}${esc(e.part || '')}</span></span>
       </button>`).join('')}
     </div>`;
   });
@@ -924,6 +955,10 @@ document.addEventListener('click', ev => {
     case 'goto': show(btn.dataset.view); break;
     case 'filter-group':
       exFilter = btn.dataset.group || null;
+      rerender();
+      break;
+    case 'filter-eq':
+      eqFilter = btn.dataset.eq || null;
       rerender();
       break;
     case 'start': startPass(btn.dataset.day); break;
@@ -1076,12 +1111,13 @@ $main.addEventListener('submit', ev => {
   ev.preventDefault();
   const name = document.getElementById('new-ex-name').value.trim();
   const group = document.getElementById('new-ex-group').value;
+  const eq = document.getElementById('new-ex-eq').value;
   if (!name) return;
   if (EXERCISES.concat(state.custom).some(e => !e.hidden && e.name.toLowerCase() === name.toLowerCase())) {
     announce(`${name} finns redan.`);
     return;
   }
-  state.custom.push({ id: 'egen-' + uid(), name, group });
+  state.custom.push({ id: 'egen-' + uid(), name, group, ...(eqById(eq) ? { eq } : {}) });
   save(); render();
   announce(`${name} är tillagd.`);
 });
