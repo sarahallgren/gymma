@@ -624,6 +624,28 @@ details[open] > summary .chev .icon { transform: rotate(180deg); }
 .spark circle { fill: var(--primary); }
 .spark text { font-size: 12px; fill: var(--on-surface-variant); }
 
+/* Redskap: liten etikett med ikon */
+.eq {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  font-size: .75rem;
+  font-weight: 500;
+  line-height: 1.5;
+  border-radius: 6px;
+  padding: 0 .4rem;
+  margin-right: .4rem;
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.eq-icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.filter-chip .eq-icon { width: 18px; height: 18px; }
+.eq-line { margin: 0 0 .35rem; }
+.row-card.done .eq, .btn.pick .eq { background: var(--surface-container-low); color: var(--on-surface); }
+.chips-label { font-size: .8rem; font-weight: 500; color: var(--on-surface-variant); margin: .25rem .25rem 0; }
+
 /* Sök och filterchips */
 .search-field { position: relative; margin-bottom: .75rem; }
 .search-field .icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--on-surface-variant); pointer-events: none; }
