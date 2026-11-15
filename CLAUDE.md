@@ -5,7 +5,7 @@
 - Ren HTML, CSS och JavaScript. Inget byggsteg, inga ramverk, inga externa beroenden eller CDN:er. Appen ska fungera direkt på GitHub Pages.
 - Data sparas bara i localStorage under nyckeln `gymma-v1`. Ändra aldrig formatet så att gammal historik går förlorad – lägg till fält i stället.
 - Sara loggar bara sista setet per övning (vikt + reps). Mål: 4 set × 12 reps.
-- Träningen följer ett veckoschema och en treveckorsrotation med 3 övningar per muskelgrupp – en per del av muskeln. Se `SCHEDULE` och `ROTATION` i `exercises.js`.
+- Träningen följer ett veckoschema och en rotation på 4 veckor med 3 övningar per muskelgrupp – en per del av muskeln. Se `SCHEDULE` och `ROTATION` i `exercises.js`. Antalet veckor räknas från antalet rader i `ROTATION`. Samma övning ska inte ligga två veckor i rad (räkna även vecka 4 → 1), och tunga lyft för nedre ryggen på tisdag ska inte ligga samma vecka som tunga höftfällningar på fredag.
 - Varje övning har ett redskap i fältet `eq` (maskin, kabel, hantlar, stang eller kropp, se `EQUIPMENT`). Nya övningar ska alltid få ett.
 - Övningarnas `id` i `exercises.js` får inte ändras, eftersom historiken pekar på dem.
 - Mobilen först: tryckytor minst 44 px, fungerar med skärmläsare och tangentbord, stöd för mörkt läge.

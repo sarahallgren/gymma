@@ -191,13 +191,15 @@ function minutesBetween(a, b) {
   return Number.isFinite(ms) ? Math.max(1, Math.round(ms / 60000)) : null;
 }
 
-// Vilken vecka i treveckorsrotationen är det? Räknas i hela veckor från en fast måndag,
+// Vilken vecka i rotationen är det? Räknas i hela veckor från en fast måndag,
 // så att rotationen fortsätter i samma takt över årsskiften.
+// Antal veckor i rotationen (lika många rader per muskelgrupp i ROTATION)
+const ROT_WEEKS = Math.max(1, ...Object.values(ROTATION).map(r => r.length));
 const ROTATION_START = Date.UTC(2026, 10, 9); // Måndag 9 november 2026 = vecka 1
 function currentWeek() {
   const m = mondayOf(new Date());
   const weeks = Math.round((Date.UTC(m.getFullYear(), m.getMonth(), m.getDate()) - ROTATION_START) / (7 * DAY_MS));
-  return ((weeks % 3) + 3) % 3; // 0, 1 eller 2
+  return ((weeks % ROT_WEEKS) + ROT_WEEKS) % ROT_WEEKS; // 0 = vecka 1
 }
 const activeWeek = () => (chosenWeek == null ? currentWeek() : chosenWeek);
 
@@ -353,7 +355,7 @@ function weekSelect() {
   return `<span class="weekchip">
     <label class="sr-only" for="week-select">Vecka i rotationen</label>
     <select id="week-select">
-      ${[0, 1, 2].map(w => `<option value="${w}" ${w === activeWeek() ? 'selected' : ''}>Vecka ${w + 1} av 3${w === now ? ' (nu)' : ''}</option>`).join('')}
+      ${Array.from({ length: ROT_WEEKS }, (_, w) => w).map(w => `<option value="${w}" ${w === activeWeek() ? 'selected' : ''}>Vecka ${w + 1} av ${ROT_WEEKS}${w === now ? ' (nu)' : ''}</option>`).join('')}
     </select>${icon('expand')}
   </span>`;
 }
@@ -552,7 +554,7 @@ function viewPass() {
 function viewSchema() {
   const now = currentWeek();
   let h = `<h2>Schema</h2>
-    <p>Varje muskelgrupp får 3 övningar per pass – en för varje del av muskeln. Övningarna byts ut i en rotation på 3 veckor. Denna vecka är <strong>vecka ${now + 1}</strong>.</p>`;
+    <p>Varje muskelgrupp får 3 övningar per pass – en för varje del av muskeln. Övningarna byts ut i en rotation på ${ROT_WEEKS} veckor. Denna vecka är <strong>vecka ${now + 1}</strong>.</p>`;
   SCHEDULE.forEach(s => {
     h += `<section class="card"><h3>${esc(dayTitle(s))}</h3>`;
     s.groups.forEach(g => {

@@ -1,4 +1,4 @@
-// Övningsbibliotek, veckoschema och treveckorsrotation.
+// Övningsbibliotek, veckoschema och rotation på 4 veckor.
 // "id" får aldrig ändras efter att du loggat pass, eftersom historiken pekar på det.
 //
 // Bilderna kommer från Free Exercise DB (public domain):
@@ -39,6 +39,7 @@ const EXERCISES = [
   { id: 'shrugs', name: 'Shrugs med hantlar', group: 'Axlar', part: 'Kappmuskeln', img: 'Dumbbell_Shrug', eq: 'hantlar' },
   { id: 'militarpress', name: 'Militärpress', group: 'Axlar', part: 'Främre axeln', img: 'Standing_Military_Press', eq: 'stang' },
   { id: 'omvanda-flyes-maskin', name: 'Omvända flyes i maskin', group: 'Axlar', part: 'Bakre axeln', img: 'Reverse_Machine_Flyes', eq: 'maskin' },
+  { id: 'liggande-sidolyft', name: 'Liggande sidolyft', group: 'Axlar', part: 'Sidan av axeln', img: 'Lying_One-Arm_Lateral_Raise', eq: 'hantlar' },
 
   // Vader
   { id: 'vadpress', name: 'Stående vadpress', group: 'Vader', part: 'Raka ben – stora vadmuskeln', img: 'Standing_Calf_Raises', eq: 'maskin' },
@@ -67,6 +68,7 @@ const EXERCISES = [
   { id: 'rodd-maskin', name: 'Rodd i maskin', group: 'Rygg', part: 'Tjocklek – mitten av ryggen', img: 'Leverage_High_Row', eq: 'maskin' },
   { id: 'pullups', name: 'Pullups', group: 'Rygg', part: 'Bredd – latsen', img: 'Pullups', eq: 'kropp' },
   { id: 'latsdrag-v', name: 'Latsdrag med V-handtag', group: 'Rygg', part: 'Bredd – latsen', img: 'V-Bar_Pulldown', eq: 'kabel' },
+  { id: 'superman', name: 'Superman', group: 'Rygg', part: 'Nedre ryggen', img: 'Superman', eq: 'kropp' },
 
   // Triceps
   { id: 'triceps-overhead', name: 'Tricepsextension över huvudet', group: 'Triceps', part: 'Långa huvudet', img: 'Cable_Rope_Overhead_Triceps_Extension', eq: 'kabel' },
@@ -98,6 +100,7 @@ const EXERCISES = [
   { id: 'flyes-kabel-nedifran', name: 'Flyes i kabel nedifrån och upp', group: 'Bröst', part: 'Övre bröstet', img: 'Low_Cable_Crossover', eq: 'kabel' },
   { id: 'lutande-brostpress-maskin', name: 'Lutande bröstpress i maskin', group: 'Bröst', part: 'Övre bröstet', img: 'Leverage_Incline_Chest_Press', eq: 'maskin' },
   { id: 'armhavningar', name: 'Armhävningar', group: 'Bröst', part: 'Mitten av bröstet', img: 'Pushups', eq: 'kropp' },
+  { id: 'nedatlutande-bankpress', name: 'Nedåtlutande bänkpress', group: 'Bröst', part: 'Nedre bröstet', img: 'Decline_Barbell_Bench_Press', eq: 'stang' },
 
   // Biceps
   { id: 'lutande-hantelcurl', name: 'Lutande hantelcurl', group: 'Biceps', part: 'Långa huvudet', img: 'Incline_Dumbbell_Curl', eq: 'hantlar' },
@@ -112,6 +115,7 @@ const EXERCISES = [
   { id: 'hammarcurl-rep', name: 'Hammarcurl med rep i kabel', group: 'Biceps', part: 'Underarmen – brachialis', img: 'Cable_Hammer_Curls_-_Rope_Attachment', eq: 'kabel' },
   { id: 'omvand-stangcurl', name: 'Stångcurl med omvänt grepp', group: 'Biceps', part: 'Underarmen – brachialis', img: 'Reverse_Barbell_Curl', eq: 'stang' },
   { id: 'bicepscurl-maskin', name: 'Bicepscurl i maskin', group: 'Biceps', part: 'Korta huvudet', img: 'Machine_Bicep_Curl', eq: 'maskin' },
+  { id: 'zottman-curl', name: 'Zottman curl', group: 'Biceps', part: 'Underarmen – brachialis', img: 'Zottman_Curl', eq: 'hantlar' },
 
   // Ben
   { id: 'knaboj', name: 'Knäböj', group: 'Ben', part: 'Framsida lår', img: 'Barbell_Squat', eq: 'stang' },
@@ -128,6 +132,7 @@ const EXERCISES = [
   { id: 'utatforare', name: 'Utåtförare', group: 'Ben', part: 'Sätet', img: 'Thigh_Abductor', eq: 'maskin' },
   { id: 'glute-kickback-kabel', name: 'Glute kickback i kabel', group: 'Ben', part: 'Sätet', img: 'One-Legged_Cable_Kickback', eq: 'kabel' },
   { id: 'inatforare', name: 'Inåtförare', group: 'Ben', part: 'Insida lår', img: 'Thigh_Adductor', eq: 'maskin' },
+  { id: 'stelbent-marklyft-hantlar', name: 'Stelbent marklyft med hantlar', group: 'Ben', part: 'Baksida lår', img: 'Stiff-Legged_Dumbbell_Deadlift', eq: 'hantlar' },
 
   // Mage
   { id: 'cable-crunch', name: 'Cable crunch', group: 'Mage', part: 'Övre magen', img: 'Cable_Crunch', eq: 'kabel' },
@@ -142,6 +147,8 @@ const EXERCISES = [
   { id: 'plankan', name: 'Plankan', group: 'Mage', part: 'Hela bålen', img: 'Plank', eq: 'kropp', unit: 'sek', defaultReps: 30 },
   { id: 'maghjul', name: 'Maghjul', group: 'Mage', part: 'Hela bålen', img: 'Ab_Roller', eq: 'kropp' },
   { id: 'sidoplanka', name: 'Sidoplanka', group: 'Mage', part: 'Sneda magmusklerna', img: 'Side_Bridge', eq: 'kropp', unit: 'sek', defaultReps: 30 },
+  { id: 'nedatlutande-crunch', name: 'Nedåtlutande crunch', group: 'Mage', part: 'Övre magen', img: 'Decline_Crunch', eq: 'kropp' },
+  { id: 'omvand-crunch-kabel', name: 'Omvänd crunch i kabel', group: 'Mage', part: 'Nedre magen', img: 'Cable_Reverse_Crunch', eq: 'kabel' },
 ];
 
 // Veckoschemat. "day": 1 = måndag … 5 = fredag (6 = lördag, 0 = söndag).
@@ -152,47 +159,57 @@ const SCHEDULE = [
   { day: 5, name: 'Fredag', groups: ['Ben', 'Mage'] },
 ];
 
-// Treveckorsrotation: 3 övningar per muskelgrupp och vecka – en för varje del av muskeln.
-// Rad 1 = vecka 1, rad 2 = vecka 2, rad 3 = vecka 3.
+// Rotation på 4 veckor: 3 övningar per muskelgrupp och vecka – en för varje del av muskeln.
+// Rad 1 = vecka 1, rad 2 = vecka 2 och så vidare. Lägg till eller ta bort rader för att ändra antalet veckor,
+// men alla muskelgrupper måste ha lika många rader.
+// Tunga lyft för nedre ryggen på tisdagar ligger i samma vecka som lättare baksida-lår på fredagar, och tvärtom.
 const ROTATION = {
   Axlar: [
-    ['axelpress', 'sidolyft', 'omvanda-flyes'],
-    ['axelpress-maskin', 'sidolyft-kabel', 'face-pulls'],
-    ['arnoldpress', 'sidolyft-sittande', 'bakre-delt-kabel'],
+    ['axelpress', 'sidolyft', 'face-pulls'],
+    ['militarpress', 'sidolyft-kabel', 'omvanda-flyes'],
+    ['axelpress-maskin', 'liggande-sidolyft', 'bakre-delt-kabel'],
+    ['arnoldpress', 'sidolyft-sittande', 'omvanda-flyes-maskin'],
   ],
   Vader: [
-    ['vadpress', 'vadpress-benpress', 'sittande-vadpress'],
-    ['vadpress-hantel', 'vadpress-benpress', 'sittande-vadpress-hantel'],
-    ['vadpress-stang', 'vadpress-benpress', 'sittande-vadpress-stang'],
+    ['vadpress', 'vadpress-hantel', 'sittande-vadpress'],
+    ['vadpress-benpress', 'vadpress-stang', 'sittande-vadpress-hantel'],
+    ['vadpress-smith', 'vadpress-hantel', 'sittande-vadpress'],
+    ['vadpress-benpress', 'vadpress-stang', 'sittande-vadpress-stang'],
   ],
   Rygg: [
-    ['latsdrag', 'sittande-rodd', 'ryggresningar'],
-    ['chins', 'hantelrodd', 'marklyft'],
-    ['latsdrag-smalt', 't-bar-rodd', 'good-morning'],
+    ['latsdrag', 'hantelrodd', 'marklyft'],
+    ['chins', 'sittande-rodd', 'ryggresningar'],
+    ['latsdrag-v', 't-bar-rodd', 'good-morning'],
+    ['pullups', 'rodd-maskin', 'superman'],
   ],
   Triceps: [
-    ['triceps-overhead', 'triceps-pushdown', 'triceps-omvant'],
-    ['skullcrusher', 'triceps-rep', 'bankpress-smalt'],
-    ['triceps-hantel-overhead', 'dips', 'tate-press'],
+    ['triceps-overhead', 'dips', 'tate-press'],
+    ['skullcrusher', 'triceps-pushdown', 'kickbacks'],
+    ['skullcrusher-hantlar', 'tricepspress-maskin', 'triceps-omvant'],
+    ['triceps-hantel-overhead', 'triceps-rep', 'bankpress-smalt'],
   ],
   Bröst: [
-    ['hantelpress-lutande', 'bankpress', 'flyes-kabel'],
-    ['lutande-bankpress', 'hantelpress', 'dips-brost'],
-    ['lutande-flyes', 'brostpress-maskin', 'nedatlutande-hantelpress'],
+    ['lutande-bankpress', 'hantelpress', 'flyes-kabel'],
+    ['hantelpress-lutande', 'brostpress-maskin', 'dips-brost'],
+    ['lutande-brostpress-maskin', 'bankpress', 'nedatlutande-hantelpress'],
+    ['flyes-kabel-nedifran', 'butterfly', 'nedatlutande-bankpress'],
   ],
   Biceps: [
-    ['lutande-hantelcurl', 'preachercurl', 'hammarcurl'],
-    ['stangcurl-smalt', 'koncentrationscurl', 'hammarcurl-rep'],
-    ['bicepscurl', 'stangcurl-brett', 'omvand-stangcurl'],
+    ['lutande-hantelcurl', 'preachercurl', 'hammarcurl-rep'],
+    ['kabelcurl', 'koncentrationscurl', 'omvand-stangcurl'],
+    ['stangcurl-smalt', 'bicepscurl-maskin', 'hammarcurl'],
+    ['bicepscurl', 'stangcurl-brett', 'zottman-curl'],
   ],
   Ben: [
-    ['knaboj', 'bencurl', 'hoftlyft'],
-    ['benpress', 'rumanskt-marklyft', 'utfall'],
-    ['benspark', 'sittande-bencurl', 'bulgarisk-utfall'],
+    ['knaboj', 'bencurl', 'glute-kickback-kabel'],
+    ['benpress', 'rumanskt-marklyft', 'bulgarisk-utfall'],
+    ['hacklift', 'sittande-bencurl', 'hoftlyft'],
+    ['goblet-squat', 'stelbent-marklyft-hantlar', 'utatforare'],
   ],
   Mage: [
-    ['cable-crunch', 'hangande-benlyft', 'pallof'],
-    ['magmaskin', 'omvand-crunch', 'russian-twist'],
-    ['crunches', 'liggande-benlyft', 'sneda-crunches'],
+    ['cable-crunch', 'hangande-benlyft', 'russian-twist'],
+    ['magmaskin', 'liggande-benlyft', 'pallof'],
+    ['nedatlutande-crunch', 'omvand-crunch-kabel', 'sidoplanka'],
+    ['crunches', 'omvand-crunch', 'sneda-crunches'],
   ],
 };

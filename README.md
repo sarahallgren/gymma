@@ -10,7 +10,7 @@ En enkel träningsapp för gymmet. Den fungerar i mobilens webbläsare och kan l
   - Onsdag: bröst och biceps
   - Torsdag: vila
   - Fredag: ben och mage
-- **Treveckorsrotation:** 3 övningar per muskelgrupp och pass – en för varje del av muskeln (till exempel främre, sidan och bakre axeln). Övningarna byts varje vecka i en cykel på 3 veckor. Fliken **Schema** visar hela rotationen.
+- **Rotation på 4 veckor:** 3 övningar per muskelgrupp och pass – en för varje del av muskeln (till exempel främre, sidan och bakre axeln). Övningarna byts varje vecka, och redskapen blandas i varje pass. Fliken **Schema** visar hela rotationen.
 - **Logga bara sista setet:** Målet är 4 set × 12 reps. En övning i taget är öppen. Du ställer in vikt och reps med plus och minus och trycker **Klar**. Klara övningar krymper till en rad.
 - **Förslag på högre vikt:** Klarade du alla reps förra gången föreslår appen nästa vikt.
 - **Veckorad** på startsidan som visar vilka dagar du har tränat.
@@ -43,7 +43,7 @@ Det betyder att passen försvinner om du rensar webbläsarens data eller byter m
 |---|---|
 | `index.html` | Sidans grundstruktur |
 | `style.css` | Utseende: färgteman (överst i filen), knappar, mörkt läge |
-| `exercises.js` | Övningar, veckoschema, rotationen (`ROTATION`) och antal set/reps – enklast att ändra här |
+| `exercises.js` | Övningar, veckoschema, rotationen (`ROTATION`, en rad per vecka) och antal set/reps – enklast att ändra här |
 | `bilder/` | Två bilder per övning (start och slut) |
 | `app.js` | All logik: pass, set, historik, sparande |
 | `manifest.webmanifest`, `icon*` | Gör att den kan installeras som app |
