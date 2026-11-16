@@ -237,7 +237,9 @@ body {
   line-height: 1.5;
   background: var(--surface);
   color: var(--on-surface);
-  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  /* Menyn längst ner växer med texten (56 px + 1,5 rem). Allt som ligger ovanför den räknar från --above-menu. */
+  --above-menu: calc(56px + 1.5rem + 20px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--above-menu) - 4px);
   -webkit-tap-highlight-color: transparent;
   overflow-wrap: anywhere; /* Långa ord bryts hellre än att sticka ut, t.ex. vid förstorad text */
 }
@@ -633,6 +635,115 @@ details[open] > summary .chev .icon { transform: rotate(180deg); }
 .spark circle { fill: var(--primary); }
 .spark text { font-size: 12px; fill: var(--on-surface-variant); }
 
+/* Set-raden: prickar, "Set 2 av 4" och knappen Set klart */
+.setrow { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .6rem; margin: .5rem 0 .25rem; min-height: 44px; }
+.dots { display: flex; gap: 5px; flex: none; }
+.dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--primary); }
+.dots i.on { background: var(--primary); }
+.setrow .prog { flex: 1 1 5rem; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .6rem; }
+.setrow .lbl { font-weight: 500; }
+.setrow .icon-btn { min-width: 44px; min-height: 44px; }
+
+/* Tidtagning: vila mellan set eller ett set i sekunder. Ligger ovanför menyn. */
+.timer-bar {
+  position: fixed;
+  left: .75rem;
+  right: .75rem;
+  bottom: var(--above-menu);
+  max-width: 616px;
+  margin: 0 auto;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem .6rem;
+  padding: .6rem .6rem .6rem .9rem;
+  border-radius: 18px;
+  background: var(--inverse-surface);
+  color: var(--inverse-on-surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / .25);
+}
+.timer-bar .time { font-size: 1.7rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1; }
+.timer-bar .what { flex: 1 1 4.5rem; min-width: 0; font-size: .85rem; line-height: 1.25; }
+.timer-bar .bar { display: block; height: 4px; border-radius: 2px; margin-top: .3rem; overflow: hidden; background: color-mix(in srgb, currentColor 25%, transparent); }
+.timer-bar .bar i { display: block; height: 100%; background: currentColor; }
+.timer-buttons { display: flex; gap: .4rem; }
+.timer-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 .8rem;
+  border: 1px solid currentColor;
+  border-radius: 22px;
+  background: none;
+  color: inherit;
+  font-weight: 500;
+  font-size: .9rem;
+}
+.timer-bar button .icon { width: 18px; height: 18px; }
+.timer-bar button:focus-visible { outline-color: var(--inverse-on-surface); }
+.timer-bar.done { background: var(--primary); color: var(--on-primary); }
+.timer-bar.done button:focus-visible { outline-color: var(--on-primary); }
+/* --timer-h sätts av appen till radens verkliga höjd */
+body.has-timer { padding-bottom: calc(var(--above-menu) + var(--timer-h, 64px) + 26px); }
+body.has-timer .toast { bottom: calc(var(--above-menu) + var(--timer-h, 64px) + 12px); }
+
+/* Historik: växla mellan Pass och Framsteg */
+.seg2 { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--outline); border-radius: 24px; overflow: hidden; margin: .5rem 0 1rem; }
+.seg2 button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .1rem .35rem;
+  min-height: 44px;
+  padding: .25rem .5rem;
+  border: none;
+  background: transparent;
+  color: var(--on-surface);
+  font-weight: 500;
+}
+.seg2 button + button { border-left: 1px solid var(--outline); }
+.seg2 button[aria-pressed="true"] { background: var(--secondary-container); color: var(--on-secondary-container); }
+.seg2 button:focus-visible { outline-offset: -4px; }
+.seg2 .icon { width: 18px; height: 18px; }
+
+/* Framsteg */
+.progress-card { margin-top: .75rem; }
+.recs { margin-bottom: .5rem; }
+.rec { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .6rem; min-height: 52px; padding: .3rem 0; border-top: 1px solid var(--outline-variant); }
+.plain .rec:first-child { border-top: none; }
+.rec > .icon { color: var(--primary); }
+.rec .txt { flex: 1 1 7rem; }
+.bars { display: grid; grid-template-columns: auto 1fr auto; gap: .5rem .6rem; align-items: center; margin-bottom: .75rem; }
+.bars li { display: contents; }
+.bars .b { height: 12px; border-radius: 6px; background: var(--surface-container-highest); overflow: hidden; }
+.bars .b i { display: block; height: 100%; border-radius: 6px; background: var(--primary); }
+.bars .v { font-weight: 500; text-align: right; }
+
+/* Inställningar */
+.set-sec { font-size: .8rem; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); margin: 1.25rem 0 .25rem; }
+#settings-body > .set-sec:first-child { margin-top: .5rem; }
+#settings-body p { margin: 0 0 .4rem; }
+.set-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .75rem; min-height: 52px; padding: .2rem 0; border-top: 1px solid var(--outline-variant); }
+.set-row label { display: inline-flex; align-items: center; gap: .5rem; flex: 1 1 7rem; font-weight: 400; }
+.set-row label .eq-icon, .set-row label .icon { width: 22px; height: 22px; color: var(--on-surface-variant); }
+.set-row select { min-height: 44px; padding: .25rem .6rem; }
+.theme-list { grid-template-columns: repeat(auto-fit, minmax(8.75rem, 1fr)); }
+#settings-body .theme-opt { gap: .5rem; padding: .4rem .6rem; min-height: 52px; }
+#settings-body .swatch { width: 32px; height: 32px; }
+#settings-body .swatch span { width: 14px; height: 14px; }
+
+/* Strömbrytare (av/på). Tryckytan är 52 × 44 px, själva brytaren ritas inuti. */
+.switch { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 52px; height: 44px; margin: 0; background: none; border: none; cursor: pointer; }
+.switch::before { content: ""; position: absolute; left: 0; top: 6px; width: 52px; height: 32px; box-sizing: border-box; border-radius: 16px; border: 2px solid var(--outline); background: var(--surface-container-highest); transition: background .15s; }
+.switch::after { content: ""; position: absolute; left: 8px; top: 14px; width: 16px; height: 16px; border-radius: 50%; background: var(--outline); transition: transform .15s; }
+.switch:checked::before { background: var(--primary); border-color: var(--primary); }
+.switch:checked::after { background: var(--on-primary); transform: translateX(20px) scale(1.5); }
+.switch:focus-visible { outline: 3px solid var(--primary); outline-offset: 0; border-radius: 16px; }
+
 /* Knappar under övningens namn: byt övning, anteckning */
 .card-actions { display: flex; flex-wrap: wrap; gap: 0 .25rem; margin: .35rem 0 0 -.6rem; }
 
@@ -707,6 +818,7 @@ details[open] > summary .chev .icon { transform: rotate(180deg); }
 .search-field input[type="search"] { width: 100%; padding-left: 3rem; border-radius: 28px; background: var(--surface-container-high); border-color: transparent; }
 .chips { display: flex; gap: .5rem; overflow-x: auto; padding: .25rem .1rem .5rem; margin: 0 -.1rem .25rem; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
+.chips.wrap { flex-wrap: wrap; overflow: visible; }
 .filter-chip {
   flex: none;
   display: inline-flex;
@@ -803,7 +915,7 @@ dialog::backdrop { background: rgb(0 0 0 / .4); }
 .btn.pick .grow { flex: 1 1 7rem; }
 
 /* Välj färgtema – varje knapp visar sitt eget temas färger */
-.theme-list { display: grid; gap: .5rem; }
+.theme-list { display: grid; gap: .5rem; margin-top: .5rem; }
 .theme-opt {
   display: flex;
   align-items: center;
@@ -827,7 +939,7 @@ dialog::backdrop { background: rgb(0 0 0 / .4); }
   position: fixed;
   left: 1rem;
   right: 1rem;
-  bottom: calc(100px + env(safe-area-inset-bottom));
+  bottom: var(--above-menu);
   max-width: 560px;
   margin: 0 auto;
   z-index: 7;
