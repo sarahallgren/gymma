@@ -7,11 +7,14 @@
 // Det som sparas:
 //   active:   pågående pass  { id, start, title, week, exercises: [{ exId, kg, reps, done }] }
 //   history:  sparade pass   { id, start, end, title, week, exercises: [{ exId, sets: [{ kg, reps }], targetSets, targetReps }] }
-//   custom:   egna övningar  { id, name, group }
+//   custom:   egna övningar  { id, name, group, eq }
 //   settings: inställningar  { theme }
+//   notes:    anteckningar   { övningens id: text }
+//   rotation: egna byten i schemat { "Muskelgrupp|vecka|plats": övningens id }, vecka och plats räknas från 0
 // Bara sista setet sparas per övning. Äldre pass kan ha flera set – då räknas det sista.
 
 const KEY = 'gymma-v1';
+const NOTE_MAX = 200; // Längsta anteckning, i tecken
 
 // Färgteman. Färgerna finns i style.css under samma id.
 const THEMES = [
@@ -26,6 +29,12 @@ const $main = document.getElementById('main');
 const $picker = document.getElementById('picker');
 const $search = document.getElementById('picker-search');
 const $pickerList = document.getElementById('picker-list');
+const $pickerTitle = document.getElementById('picker-title');
+const $pickerIntro = document.getElementById('picker-intro');
+const $noteDialog = document.getElementById('note-dialog');
+const $noteLabel = document.getElementById('note-label');
+const $noteText = document.getElementById('note-text');
+const $noteDelete = document.getElementById('note-delete');
 const $themeDialog = document.getElementById('theme-dialog');
 const $themeList = document.getElementById('theme-list');
 const $status = document.getElementById('status');
@@ -37,7 +46,7 @@ let showHow = false;   // Visas de stora bilderna för den öppna övningen?
 let state = load();
 
 function emptyState() {
-  return { active: null, history: [], custom: [], settings: { theme: 'gron' } };
+  return { active: null, history: [], custom: [], settings: { theme: 'gron' }, notes: {}, rotation: {} };
 }
 
 function load() {
@@ -58,11 +67,15 @@ function normalize(s) {
         .filter(e => e && e.exId)
         .map(e => ({ ...e, sets: Array.isArray(e.sets) ? e.sets.filter(Boolean) : [] }))
         .filter(e => e.sets.length),
-    }));
+    }))
+    .sort(byStart);
 
   s.custom = (Array.isArray(s.custom) ? s.custom : [])
     .filter(c => c && c.id && c.name)
     .map(c => ({ ...c, group: c.group || 'Övrigt' }));
+
+  s.notes = cleanMap(s.notes, NOTE_MAX);
+  s.rotation = cleanMap(s.rotation, 80);
 
   s.settings = { theme: 'gron', ...(s.settings && typeof s.settings === 'object' ? s.settings : {}) };
   if (!THEMES.some(t => t.id === s.settings.theme)) s.settings.theme = 'gron';
@@ -78,6 +91,22 @@ function normalize(s) {
     s.active = null;
   }
   return s;
+}
+
+// Behåller bara rader med text i ett uppslag som { nyckel: text }, och kortar för långa texter.
+function cleanMap(obj, max) {
+  const out = {};
+  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === 'string' && v.trim()) out[k] = v.trim().slice(0, max);
+    }
+  }
+  return out;
+}
+
+// Äldst först. Ett pass som avslutas flera dagar för sent hamnar ändå på rätt plats.
+function byStart(a, b) {
+  return new Date(a.start) - new Date(b.start);
 }
 
 function save() {
@@ -109,6 +138,10 @@ const ICONS = {
   trending: 'M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z',
   delete: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
   palette: 'M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z',
+  swap: 'M6.99 11 3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z',
+  notes: 'M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z',
+  edit: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z',
+  undo: 'M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z',
   search: 'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
 };
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${ICONS[name]}"/></svg>`;
@@ -187,14 +220,30 @@ const dayKey = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 const mondayOf = d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
 
 function minutesBetween(a, b) {
+  if (a == null || b == null) return null;
   const ms = new Date(b) - new Date(a);
-  return Number.isFinite(ms) ? Math.max(1, Math.round(ms / 60000)) : null;
+  return Number.isFinite(ms) && ms >= 0 ? Math.max(1, Math.round(ms / 60000)) : null;
+}
+// Passets längd i minuter. Längre än 6 timmar betyder att passet glömdes kvar – då visas ingen tid.
+const MAX_PASS_MIN = 360;
+function passMinutes(start, end) {
+  const mins = minutesBetween(start, end);
+  return mins != null && mins <= MAX_PASS_MIN ? mins : null;
+}
+const isToday = iso => dayKey(new Date(iso)) === dayKey(new Date());
+// Har det pågående passet blivit liggande? (startat en annan dag eller för mer än 6 timmar sedan)
+const isStale = a => !isToday(a.start) || passMinutes(a.start, new Date()) == null;
+// "fre 13 nov kl. 18.00"
+function startedText(iso) {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${shortDate(iso).toLowerCase()} kl. ${pad(d.getHours())}.${pad(d.getMinutes())}`;
 }
 
-// Vilken vecka i rotationen är det? Räknas i hela veckor från en fast måndag,
-// så att rotationen fortsätter i samma takt över årsskiften.
 // Antal veckor i rotationen (lika många rader per muskelgrupp i ROTATION)
 const ROT_WEEKS = Math.max(1, ...Object.values(ROTATION).map(r => r.length));
+// Vilken vecka i rotationen är det? Räknas i hela veckor från en fast måndag,
+// så att rotationen fortsätter i samma takt över årsskiften.
 const ROTATION_START = Date.UTC(2026, 10, 9); // Måndag 9 november 2026 = vecka 1
 function currentWeek() {
   const m = mondayOf(new Date());
@@ -206,7 +255,30 @@ const activeWeek = () => (chosenWeek == null ? currentWeek() : chosenWeek);
 const todaysSchedule = () => SCHEDULE.find(s => s.day === new Date().getDay());
 const groupsTitle = s => cap(s.groups.map(g => g.toLowerCase()).join(' och '));
 const dayTitle = s => `${s.name} – ${s.groups.map(g => g.toLowerCase()).join(' och ')}`;
-const exercisesFor = (s, week) => s.groups.flatMap(g => (ROTATION[g] || [])[week] || []);
+
+// Schemat: grundförslaget finns i ROTATION (exercises.js). Byten som du gör i appen sparas i
+// state.rotation och läggs ovanpå. Ett byte gäller bara om övningen finns kvar och hör till rätt muskelgrupp.
+const rotKey = (g, w, k) => `${g}|${w}|${k}`;
+const rotBase = (g, w) => (ROTATION[g] || [])[w] || [];
+function rotWeek(g, w) {
+  const base = rotBase(g, w);
+  const row = base.map((id, k) => {
+    const own = state.rotation[rotKey(g, w, k)];
+    const ex = own ? exById(own) : null;
+    return ex && !ex.hidden && ex.group === g ? own : id;
+  });
+  // Samma övning får inte hamna två gånger i samma pass
+  return row.map((id, k) => (row.indexOf(id) < k ? base[k] : id));
+}
+// Platser där du har bytt övning: [{ g, w, k }]
+function rotChanges() {
+  const out = [];
+  Object.keys(ROTATION).forEach(g => ROTATION[g].forEach((base, w) => {
+    rotWeek(g, w).forEach((id, k) => { if (id !== base[k]) out.push({ g, w, k }); });
+  }));
+  return out;
+}
+const exercisesFor = (s, week) => s.groups.flatMap(g => rotWeek(g, week));
 
 // Delar upp en sparad passrubrik: "Måndag – axlar och vader · vecka 2"
 // blir { over: "Måndag · vecka 2", main: "Axlar och vader" }.
@@ -278,6 +350,15 @@ function trendsByPass() {
   return out;
 }
 
+// Det pass för en viss dag i schemat som sparats i dag (det senaste), annars null
+function todaysDonePass(s) {
+  for (let i = state.history.length - 1; i >= 0; i--) {
+    const p = state.history[i];
+    if (isToday(p.start) && String(p.title || '').startsWith(`${s.name} –`)) return p;
+  }
+  return null;
+}
+
 function weekCount() {
   const monday = mondayOf(new Date());
   return state.history.filter(p => new Date(p.start) >= monday).length;
@@ -327,6 +408,18 @@ function howImgs(exId) {
   </div>`;
 }
 
+// Anteckning för en övning, t.ex. sitshöjd eller grepp. Visas varje gång övningen är med.
+function noteBlock(exId) {
+  const note = state.notes[exId];
+  if (!note) return '';
+  return `<div class="note">
+    ${icon('notes')}
+    <p><span class="sr-only">Anteckning: </span>${esc(note)}</p>
+    <button type="button" class="text-btn" data-action="edit-note" data-id="${esc(exId)}" aria-label="Ändra anteckningen för ${esc(exName(exId))}">Ändra</button>
+  </div>`;
+}
+const noteButton = exId => `<button type="button" class="text-btn" data-action="edit-note" data-id="${esc(exId)}">${icon('notes')} Anteckning</button>`;
+
 // ---------- Vy: Hem ----------
 
 function weekStrip() {
@@ -336,15 +429,15 @@ function weekStrip() {
   let h = '<ol class="weekstrip" aria-label="Den här veckan">';
   for (let k = 0; k < 7; k++) {
     const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + k);
-    const isToday = dayKey(d) === dayKey(now);
+    const current = dayKey(d) === dayKey(now);
     const done = trained.has(dayKey(d));
     const planned = SCHEDULE.some(s => s.day === d.getDay());
-    const cls = [done ? 'done' : '', isToday ? 'today' : '', !planned && !done ? 'rest' : ''].filter(Boolean).join(' ');
+    const cls = [done ? 'done' : '', current ? 'today' : '', !planned && !done ? 'rest' : ''].filter(Boolean).join(' ');
     const what = done ? 'tränat' : planned ? 'pass i schemat' : 'vilodag';
     h += `<li>
       <span class="d" aria-hidden="true">${DAYS_SHORT[d.getDay()]}</span>
       <span class="dot ${cls}" aria-hidden="true">${done ? icon('check') : d.getDate()}</span>
-      <span class="sr-only">${cap(DAYS_LONG[d.getDay()])} ${d.getDate()}${isToday ? ', i dag' : ''}: ${what}</span>
+      <span class="sr-only">${cap(DAYS_LONG[d.getDay()])} ${d.getDate()}${current ? ', i dag' : ''}: ${what}</span>
     </li>`;
   }
   return h + '</ol>';
@@ -377,20 +470,38 @@ function viewHem() {
       <p class="overline">Pass pågår</p>
       <h2>${esc(splitTitle(a.title).main)}</h2>
       ${progressBar(done, a.exercises.length)}
-      <p>${done} av ${plural(a.exercises.length, 'övning', 'övningar')} klara</p>
+      <p>${done} av ${plural(a.exercises.length, 'övning', 'övningar')} klara${isStale(a) ? `. Startat ${esc(startedText(a.start))}.` : ''}</p>
       <button type="button" class="btn primary wide" data-action="goto" data-view="pass">${icon('play')} Fortsätt passet</button>
     </section>`;
   } else {
     const today = todaysSchedule();
     const week = activeWeek();
-    if (today) {
+    const donePass = today && todaysDonePass(today);
+    if (donePass) {
+      const ups = (trendsByPass().get(donePass.id) || []).filter(t => t.dir === 'up').length;
+      const mins = passMinutes(donePass.start, donePass.end);
+      const facts = [
+        plural(donePass.exercises.length, 'övning', 'övningar'),
+        mins ? `${mins} min` : '',
+        ups ? plural(ups, 'ökning', 'ökningar') : '',
+      ].filter(Boolean).join(' · ');
+      h += `<section class="hero">
+        <div class="hero-top"><p class="overline">Dagens pass</p>${weekSelect()}</div>
+        <h2>${esc(groupsTitle(today))}</h2>
+        <p class="hero-done">${icon('check_circle')}<span>Klart för i dag! ${esc(facts)}.</span></p>
+        <div class="stack">
+          <button type="button" class="btn primary wide" data-action="show-pass" data-id="${esc(donePass.id)}">Visa passet</button>
+          <button type="button" class="text-btn" data-action="start" data-day="${today.day}">Kör passet en gång till</button>
+        </div>
+      </section>`;
+    } else if (today) {
       h += `<section class="hero">
         <div class="hero-top"><p class="overline">Dagens pass</p>${weekSelect()}</div>
         <h2>${esc(groupsTitle(today))}</h2>
         <div class="hero-cols">
           ${today.groups.map(g => `<div>
             <h3>${esc(g)}</h3>
-            <ul>${((ROTATION[g] || [])[week] || []).map(id => `<li>${thumb(id)}<span>${esc(exName(id))}</span></li>`).join('')}</ul>
+            <ul>${rotWeek(g, week).map(id => `<li>${thumb(id)}<span>${esc(exName(id))}</span></li>`).join('')}</ul>
           </div>`).join('')}
         </div>
         <button type="button" class="btn primary wide" data-action="start" data-day="${today.day}">${icon('play')} Starta passet</button>
@@ -406,8 +517,12 @@ function viewHem() {
 
   const last = state.history[state.history.length - 1];
   const lastDate = last ? new Date(last.start) : null;
+  const count = weekCount();
+  const goal = SCHEDULE.length;
   h += `<dl class="stat-row">
-    <div><dt>pass denna vecka</dt><dd>${weekCount()} av ${SCHEDULE.length}</dd></div>
+    <div>${count > goal
+      ? `<dt>pass denna vecka, målet var ${goal}</dt><dd>${count}</dd>`
+      : `<dt>pass denna vecka</dt><dd>${count} av ${goal}</dd>`}</div>
     <div><dt>pass totalt</dt><dd>${state.history.length}</dd></div>
     <div><dt>senaste passet</dt><dd>${lastDate ? `${lastDate.getDate()} ${monShort(lastDate)}` : '–'}</dd></div>
   </dl>`;
@@ -472,6 +587,11 @@ function activeCard(e, i) {
   const prev = lastResultFor(e.exId);
   const ex = exById(e.exId);
   const sek = isSek(e.exId);
+  const note = state.notes[e.exId];
+  const actions = [
+    e.done ? '' : `<button type="button" class="text-btn" data-action="swap-ex" data-i="${i}">${icon('swap')} Byt övning</button>`,
+    note ? '' : noteButton(e.exId),
+  ].join('');
   const picture = ex && ex.img
     ? `<button type="button" class="thumb-btn" data-action="toggle-how" aria-expanded="${showHow}" aria-label="Visa hur övningen görs">${thumb(e.exId, 'lg')}</button>`
     : thumb(e.exId, 'lg');
@@ -487,6 +607,8 @@ function activeCard(e, i) {
       <button type="button" class="icon-btn" data-action="remove-ex" data-i="${i}" aria-label="Ta bort ${esc(name)} från passet">${icon('close')}</button>
     </div>
     ${showHow ? howImgs(e.exId) : ''}
+    ${actions ? `<div class="card-actions">${actions}</div>` : ''}
+    ${noteBlock(e.exId)}
     ${hintFor(e, prev)}
     <div class="steppers">
       ${stepper(i, 'kg', 'Kg', fmtNum(e.kg), 'inputmode="decimal"', 'Minska vikten', 'Öka vikten')}
@@ -519,12 +641,17 @@ function viewPass() {
   const total = a.exercises.length;
   const done = a.exercises.filter(e => e.done).length;
   const open = currentOpen();
-  const mins = minutesBetween(a.start, new Date());
+  const stale = isStale(a);
+  const mins = stale ? null : passMinutes(a.start, new Date());
 
   let h = `${t.over ? `<p class="overline">${esc(t.over)}</p>` : ''}
     <h2 class="pass-title">${esc(t.main)}</h2>
     ${progressBar(done, total)}
     <p class="muted small">${done} av ${plural(total, 'övning', 'övningar')} klara${mins ? ` · ${mins} min` : ''}</p>`;
+
+  if (stale) {
+    h += `<p class="notice">Passet startade ${esc(startedText(a.start))} och blev aldrig avslutat. Avsluta det för att spara det du hann med, eller avbryt passet. Det sparas på dagen då du startade.</p>`;
+  }
 
   if (!total) h += '<p>Lägg till din första övning.</p>';
   if (total && done === total) {
@@ -551,23 +678,41 @@ function viewPass() {
 
 // ---------- Vy: Schema ----------
 
+let schemaEdit = false; // Är schemat i ändringsläge? (bara skärmläge)
+
 function viewSchema() {
   const now = currentWeek();
-  let h = `<h2>Schema</h2>
+  const changes = rotChanges().length;
+  let h = `<div class="head-row">
+      <h2>Schema</h2>
+      <button type="button" class="pill-btn" data-action="schema-edit">${icon(schemaEdit ? 'check' : 'edit')} ${schemaEdit ? 'Klar' : 'Ändra'}</button>
+    </div>
     <p>Varje muskelgrupp får 3 övningar per pass – en för varje del av muskeln. Övningarna byts ut i en rotation på ${ROT_WEEKS} veckor. Denna vecka är <strong>vecka ${now + 1}</strong>.</p>`;
+  if (schemaEdit) {
+    h += '<p class="notice">Tryck på Byt för att välja en annan övning. Ändringen gäller från nästa pass du startar.</p>';
+  }
   SCHEDULE.forEach(s => {
     h += `<section class="card"><h3>${esc(dayTitle(s))}</h3>`;
     s.groups.forEach(g => {
       h += `<h4 class="group-head">${esc(g)}</h4><ol class="weeks">
-        ${(ROTATION[g] || []).map((ids, w) => `<li class="${w === now ? 'now' : ''}">
+        ${(ROTATION[g] || []).map((base, w) => `<li class="${w === now ? 'now' : ''}">
           <span class="wk">Vecka ${w + 1}${w === now ? ' (nu)' : ''}</span>
-          <ul class="plain">${ids.map(id => `<li>${esc(exName(id))} <span class="muted">– ${esc(exPart(id))}</span></li>`).join('')}</ul>
+          <ul class="plain">${rotWeek(g, w).map((id, k) => `<li class="${schemaEdit ? 'ex-line' : ''}">
+            <span class="txt">${esc(exName(id))} <span class="muted">– ${esc(exPart(id))}</span>${id !== base[k] ? ' <span class="changed">Ändrad</span>' : ''}</span>
+            ${schemaEdit ? `<button type="button" class="text-btn" data-action="rot-swap" data-group="${esc(g)}" data-week="${w}" data-slot="${k}"
+              aria-label="Byt ${esc(exName(id))}, ${esc(s.name.toLowerCase())} vecka ${w + 1}">${icon('swap')}Byt</button>` : ''}
+          </li>`).join('')}</ul>
         </li>`).join('')}
       </ol>`;
     });
     h += '</section>';
   });
-  h += '<p class="muted">Vill du byta övningar? Ändra i filen exercises.js under ROTATION.</p>';
+  if (changes) {
+    h += `<div class="schema-foot">
+      <p class="muted">Du har bytt ${plural(changes, 'övning', 'övningar')} i schemat.</p>
+      <button type="button" class="text-btn" data-action="rot-reset-all">${icon('undo')} Återställ hela schemat</button>
+    </div>`;
+  }
   return h;
 }
 
@@ -595,7 +740,7 @@ function viewHistorik() {
     }
     const ts = trends.get(p.id) || [];
     const ups = ts.filter(t => t.dir === 'up').length;
-    const mins = minutesBetween(p.start, p.end);
+    const mins = passMinutes(p.start, p.end);
     const meta = [
       p.week ? `Vecka ${p.week}` : '',
       mins ? `${mins} min` : '',
@@ -604,7 +749,7 @@ function viewHistorik() {
     ].filter(Boolean).join(' · ');
     const title = `${shortDate(p.start)} · ${splitTitle(p.title, 'Pass').main}`;
 
-    h += `<details class="card pass" ${idx === 0 ? 'open' : ''}>
+    h += `<details class="card pass" data-pass="${esc(p.id)}" ${idx === 0 ? 'open' : ''}>
       <summary>
         <div class="txt"><h4 class="name">${esc(title)}</h4><span class="meta">${esc(meta)}</span></div>
         <span class="chev">${icon('expand')}</span>
@@ -676,7 +821,7 @@ function viewOvningar() {
 
 // När ligger övningen i schemat? "Mån v. 2"
 function scheduleFor(ex) {
-  const weeks = (ROTATION[ex.group] || []).map((ids, w) => (ids.includes(ex.id) ? w + 1 : 0)).filter(Boolean);
+  const weeks = (ROTATION[ex.group] || []).map((_, w) => (rotWeek(ex.group, w).includes(ex.id) ? w + 1 : 0)).filter(Boolean);
   const day = SCHEDULE.find(s => s.groups.includes(ex.group));
   return weeks.length && day ? `${day.name.slice(0, 3)} v. ${weeks.join(', ')}` : '–';
 }
@@ -710,7 +855,7 @@ function exerciseItem(ex, results) {
   const latest = results[results.length - 1];
   const custom = state.custom.some(c => c.id === ex.id);
   const meta = [ex.part, best ? `bästa ${fmtNum(best)} kg` : ''].filter(Boolean).join(' · ');
-  return `<details class="ex-item">
+  return `<details class="ex-item" data-ex="${esc(ex.id)}">
     <summary>
       ${thumb(ex.id)}
       <span class="txt"><span class="name">${esc(ex.name)}</span>${meta || ex.eq ? `<span class="meta">${eqTag(ex.id)}${esc(meta)}</span>` : ''}</span>
@@ -724,6 +869,7 @@ function exerciseItem(ex, results) {
         <div><dt>i schemat</dt><dd>${esc(scheduleFor(ex))}</dd></div>
       </dl>
       ${sparkline(ex, results)}
+      ${noteBlock(ex.id) || `<div class="card-actions">${noteButton(ex.id)}</div>`}
       ${custom ? `<div class="card-foot"><button type="button" class="text-btn danger" data-action="delete-custom" data-id="${esc(ex.id)}" aria-label="Radera övningen ${esc(ex.name)}">${icon('delete')} Radera övningen</button></div>` : ''}
     </div>
   </details>`;
@@ -771,7 +917,7 @@ function rerender() {
   if (el && $main.contains(el)) {
     if (el.id) sel = `#${CSS.escape(el.id)}`;
     else if (el.dataset && el.dataset.action) {
-      sel = ['action', 'i', 'field', 'dir', 'group', 'eq', 'day', 'id'].filter(k => el.dataset[k] != null)
+      sel = ['action', 'i', 'field', 'dir', 'group', 'eq', 'day', 'id', 'week', 'slot'].filter(k => el.dataset[k] != null)
         .map(k => `[data-${k}="${CSS.escape(el.dataset[k])}"]`).join('');
     }
   }
@@ -783,6 +929,7 @@ function rerender() {
 }
 
 function show(v) {
+  if (v !== 'schema') schemaEdit = false;
   view = v;
   render();
   window.scrollTo(0, 0);
@@ -880,30 +1027,159 @@ function finishPass() {
     id: a.id, start: a.start, end: new Date().toISOString(),
     title: a.title, week: a.week, exercises,
   });
+  state.history.sort(byStart);
   endPass('historik', 'Bra jobbat! Passet är sparat.');
+  showPass(a.id);
 }
 
-function openPicker() {
+// Öppnar ett visst pass i historiken och rullar dit
+function showPass(id) {
+  const el = [...$main.querySelectorAll('details.pass')].find(d => d.dataset.pass === id);
+  if (!el) return;
+  el.open = true;
+  if (el !== $main.querySelector('details.pass')) scrollToEl(el);
+}
+
+// Lägger in en övning sist i sin muskelgrupp, så att passet inte får samma rubrik två gånger.
+// Finns gruppen inte i passet hamnar övningen sist. Returnerar platsen.
+function insertInGroup(list, id) {
+  const group = exGroup(id);
+  let last = -1;
+  list.forEach((e, k) => { if (exGroup(e.exId) === group) last = k; });
+  const idx = last >= 0 ? last + 1 : list.length;
+  list.splice(idx, 0, newEntry(id));
+  return idx;
+}
+
+// Väljaren används på tre sätt:
+//   { type: 'add' }                          lägg till en övning i passet
+//   { type: 'swap', index, current, group }  byt en övning i dagens pass
+//   { type: 'rot', group, week, slot, current }  byt en övning i schemat
+let pickerMode = { type: 'add' };
+
+function openPicker(mode = { type: 'add' }) {
+  pickerMode = mode;
+  const name = mode.current ? exName(mode.current) : '';
+  $pickerTitle.textContent = { add: 'Lägg till övning', swap: 'Byt övning', rot: 'Byt övning i schemat' }[mode.type];
+  const day = mode.type === 'rot' ? SCHEDULE.find(x => x.groups.includes(mode.group)) : null;
+  $pickerIntro.textContent = {
+    add: '',
+    swap: `${name} byts bara i dagens pass.`,
+    rot: `${day ? `${day.name}, vecka` : 'Vecka'} ${mode.week + 1}. Nu: ${name}.`,
+  }[mode.type];
+  $pickerIntro.hidden = mode.type === 'add';
   $search.value = '';
   renderPicker();
   $picker.showModal();
-  $search.focus();
+  // När du lägger till börjar du oftast med att söka. Vid byte visas förslag direkt,
+  // så då hamnar fokus på rubriken och tangentbordet täcker inte förslagen.
+  (mode.type === 'add' ? $search : $pickerTitle).focus();
 }
+
+// En rad i väljaren. "tags" är små etiketter före redskapet, "meta" är texten efter.
+function pickRow(e, tags, meta) {
+  return `<button type="button" class="btn small pick" data-action="pick" data-id="${esc(e.id)}">
+    ${thumb(e.id)}
+    <span class="grow">${esc(e.name)}<span class="sub">${tags}${eqTag(e.id)}${esc(meta)}</span></span>
+  </button>`;
+}
+const pickSection = (title, rows) => (rows.length ? `<h3>${esc(title)}</h3><div class="stack">${rows.join('')}</div>` : '');
+const tag = (text, cls = '') => `<span class="eq ${cls}">${text}</span>`;
 
 function renderPicker() {
   const q = $search.value.trim().toLowerCase();
+  const m = pickerMode;
+  const inPass = new Set(state.active ? state.active.exercises.map(e => e.exId) : []);
   let h = '';
-  allGroups().forEach(g => {
-    const list = allExercises().filter(e => e.group === g && exMatches(e, q));
-    if (!list.length) return;
-    h += `<h3>${esc(g)}</h3><div class="stack">
-      ${list.map(e => `<button type="button" class="btn small pick" data-action="pick" data-id="${esc(e.id)}">
-        ${thumb(e.id)}
-        <span>${esc(e.name)}<span class="sub">${eqTag(e.id)}${esc(e.part || '')}</span></span>
-      </button>`).join('')}
-    </div>`;
-  });
-  $pickerList.innerHTML = h || '<p>Ingen övning hittades. Lägg till den under Övningar.</p>';
+
+  if (m.type === 'add' || (m.type === 'swap' && (q || m.all))) {
+    // Hela listan, grupp för grupp. Vid byte visas inte det som redan är med i passet.
+    allGroups().forEach(g => {
+      const list = allExercises().filter(e => e.group === g && exMatches(e, q) && !(m.type === 'swap' && inPass.has(e.id)));
+      h += pickSection(g, list.map(e => pickRow(e, inPass.has(e.id) ? tag(`${icon('check')}I passet`, 'in-pass') : '', e.part || '')));
+    });
+  } else {
+    // Förslag: först övningar för samma del av muskeln, sedan resten av muskelgruppen
+    const cur = exById(m.current);
+    const taken = m.type === 'swap' ? inPass : new Set(rotWeek(m.group, m.week));
+    const pool = allExercises().filter(e => e.group === m.group && e.id !== m.current && !taken.has(e.id) && exMatches(e, q));
+    const same = cur && cur.part ? pool.filter(e => e.part === cur.part) : [];
+    const rest = pool.filter(e => !same.includes(e));
+    const row = e => {
+      if (m.type === 'swap') {
+        const last = lastResultFor(e.id);
+        return pickRow(e, '', last ? `Senast ${formatShort(last, e.id)}` : 'Inte loggad än');
+      }
+      const weeks = (ROTATION[m.group] || []).map((_, w) => (rotWeek(m.group, w).includes(e.id) ? w + 1 : 0)).filter(Boolean);
+      return pickRow(e, weeks.length ? tag(`Redan vecka ${weeks.join(', ')}`, 'used') : '', e.part || '');
+    };
+    if (m.type === 'rot' && !q) {
+      const base = rotBase(m.group, m.week)[m.slot];
+      if (base !== m.current) {
+        h += `<button type="button" class="btn ghost wide" data-action="rot-reset">${icon('undo')} Tillbaka till förslaget: ${esc(exName(base))}</button>`;
+      }
+    }
+    h += pickSection(`Samma del: ${cur && cur.part ? cur.part.toLowerCase() : ''}`, same.map(row));
+    h += pickSection(`${same.length ? 'Andra övningar' : 'Övningar'} för ${String(m.group).toLowerCase()}`, rest.map(row));
+    if (m.type === 'swap') {
+      h += `<button type="button" class="btn ghost wide" data-action="picker-all">Visa alla övningar</button>`;
+    }
+  }
+  $pickerList.innerHTML = h || '<p>Ingen övning hittades.</p>';
+}
+
+// ---------- Anteckningar ----------
+
+let noteExId = null; // Vilken övning anteckningsrutan gäller
+
+function openNote(exId) {
+  noteExId = exId;
+  $noteLabel.textContent = `Anteckning för ${exName(exId)}`;
+  $noteText.value = state.notes[exId] || '';
+  $noteDelete.hidden = !state.notes[exId];
+  $noteDialog.showModal();
+  $noteText.focus();
+}
+
+// Sparar (eller tar bort) anteckningen och ställer tillbaka fokus där du var
+function saveNote(text) {
+  const exId = noteExId;
+  if (!exId) return;
+  const had = !!state.notes[exId];
+  const clean = String(text || '').trim().slice(0, NOTE_MAX);
+  if (clean) state.notes[exId] = clean;
+  else delete state.notes[exId];
+  save();
+  $noteDialog.close();
+  noteExId = null;
+  render();
+  if (view === 'ovningar') {
+    const item = [...$main.querySelectorAll('details.ex-item')].find(d => d.dataset.ex === exId);
+    if (item) item.open = true;
+  }
+  const btn = [...$main.querySelectorAll('[data-action="edit-note"]')].find(el => el.dataset.id === exId);
+  if (btn) btn.focus({ preventScroll: true });
+  if (clean) announce('Anteckningen är sparad.');
+  else if (had) announce('Anteckningen är borttagen.');
+}
+
+// ---------- Schemat: byt övning ----------
+
+function focusRotButton(m) {
+  const btn = $main.querySelector(`[data-action="rot-swap"][data-group="${CSS.escape(m.group)}"][data-week="${m.week}"][data-slot="${m.slot}"]`);
+  if (btn) btn.focus({ preventScroll: true });
+}
+
+function setRotation(m, id) {
+  const base = rotBase(m.group, m.week)[m.slot];
+  const key = rotKey(m.group, m.week, m.slot);
+  if (id === base) delete state.rotation[key];
+  else state.rotation[key] = id;
+  save();
+  $picker.close();
+  render();
+  focusRotButton(m);
+  announce(`Vecka ${m.week + 1}: ${exName(id)} i stället för ${exName(m.current)}.`);
 }
 
 function exportData() {
@@ -943,7 +1219,7 @@ function importData(file) {
 
 // ---------- Händelser ----------
 
-const PASS_ACTIONS = ['open-ex', 'toggle-how', 'step', 'bump', 'done', 'remove-ex', 'pick', 'finish', 'cancel'];
+const PASS_ACTIONS = ['open-ex', 'toggle-how', 'step', 'bump', 'done', 'remove-ex', 'swap-ex', 'open-picker', 'finish', 'cancel'];
 
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('[data-action]');
@@ -1023,15 +1299,52 @@ document.addEventListener('click', ev => {
       break;
 
     case 'open-picker': openPicker(); break;
+    case 'swap-ex': {
+      const cur = a.exercises[i];
+      if (cur) openPicker({ type: 'swap', index: i, current: cur.exId, group: exGroup(cur.exId) });
+      break;
+    }
+    case 'picker-all':
+      pickerMode = { ...pickerMode, all: true };
+      renderPicker();
+      $search.focus();
+      break;
     case 'close-dialog': btn.closest('dialog').close(); break;
     case 'pick': {
-      a.exercises.push(newEntry(btn.dataset.id));
-      openIdx = a.exercises.length - 1;
+      const id = btn.dataset.id;
+      const m = pickerMode;
+      if (m.type === 'rot') { setRotation(m, id); break; }
+      if (!a) return;
+      if (m.type === 'swap') {
+        // Byt på samma plats i passet. Finns övningen redan med byts ingenting.
+        const at = a.exercises[m.index];
+        if (!at || at.exId !== m.current || a.exercises.some(e => e.exId === id)) { $picker.close(); break; }
+        if (exGroup(id) === exGroup(m.current)) {
+          a.exercises[m.index] = newEntry(id);
+          openIdx = m.index;
+        } else {
+          // En övning för en annan muskelgrupp flyttas till sin egen grupp i passet
+          a.exercises.splice(m.index, 1);
+          openIdx = insertInGroup(a.exercises, id);
+        }
+        showHow = false;
+        save();
+        $picker.close();
+        render();
+        focusPassStep();
+        announce(`Bytt till ${exName(id)}.`);
+        break;
+      }
+      let idx = a.exercises.findIndex(e => e.exId === id);
+      const already = idx >= 0;
+      if (!already) idx = insertInGroup(a.exercises, id);
+      openIdx = idx;
       showHow = false;
       save();
       $picker.close();
       render();
       focusPassStep();
+      if (already) announce(`${exName(id)} finns redan i passet.`);
       break;
     }
 
@@ -1051,10 +1364,41 @@ document.addEventListener('click', ev => {
     case 'delete-custom':
       if (!confirm('Radera övningen? Gamla pass med den visas som "Okänd övning".')) return;
       state.custom = state.custom.filter(c => c.id !== btn.dataset.id);
+      delete state.notes[btn.dataset.id];
+      Object.keys(state.rotation).forEach(k => { if (state.rotation[k] === btn.dataset.id) delete state.rotation[k]; });
       if (exFilter && !allGroups().includes(exFilter)) exFilter = null;
       save(); render();
       $main.focus({ preventScroll: true });
       announce('Övningen är raderad.');
+      break;
+
+    case 'edit-note': openNote(btn.dataset.id); break;
+    case 'delete-note': saveNote(''); break;
+
+    case 'schema-edit':
+      schemaEdit = !schemaEdit;
+      rerender();
+      break;
+    case 'rot-swap': {
+      const m = { type: 'rot', group: btn.dataset.group, week: Number(btn.dataset.week), slot: Number(btn.dataset.slot) };
+      m.current = rotWeek(m.group, m.week)[m.slot];
+      if (m.current) openPicker(m);
+      break;
+    }
+    case 'rot-reset':
+      if (pickerMode.type === 'rot') setRotation(pickerMode, rotBase(pickerMode.group, pickerMode.week)[pickerMode.slot]);
+      break;
+    case 'rot-reset-all':
+      if (!confirm('Återställa hela schemat till förslaget? Dina byten tas bort.')) return;
+      state.rotation = {};
+      save(); render();
+      $main.focus({ preventScroll: true });
+      announce('Schemat är återställt.');
+      break;
+
+    case 'show-pass':
+      show('historik');
+      showPass(btn.dataset.id);
       break;
 
     case 'export': exportData(); break;
@@ -1077,9 +1421,14 @@ document.addEventListener('click', ev => {
 });
 
 // Tryck utanför en dialogruta stänger den
-[$picker, $themeDialog].forEach(d => d.addEventListener('click', ev => {
+[$picker, $themeDialog, $noteDialog].forEach(d => d.addEventListener('click', ev => {
   if (ev.target === d) d.close();
 }));
+
+document.getElementById('note-form').addEventListener('submit', ev => {
+  ev.preventDefault();
+  saveNote($noteText.value);
+});
 
 // Spara direkt när du skriver kilo eller reps
 $main.addEventListener('input', ev => {

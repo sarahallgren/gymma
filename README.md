@@ -11,7 +11,10 @@ En enkel träningsapp för gymmet. Den fungerar i mobilens webbläsare och kan l
   - Torsdag: vila
   - Fredag: ben och mage
 - **Rotation på 4 veckor:** 3 övningar per muskelgrupp och pass – en för varje del av muskeln (till exempel främre, sidan och bakre axeln). Övningarna byts varje vecka, och redskapen blandas i varje pass. Fliken **Schema** visar hela rotationen.
+- **Ändra schemat i appen:** Under **Schema** trycker du **Ändra** och sedan **Byt** vid en övning. Du väljer bland övningarna för samma muskelgrupp. Det går att återställa en plats eller hela schemat.
 - **Logga bara sista setet:** Målet är 4 set × 12 reps. En övning i taget är öppen. Du ställer in vikt och reps med plus och minus och trycker **Klar**. Klara övningar krymper till en rad.
+- **Byt övning i passet:** Är maskinen upptagen trycker du **Byt övning** och får förslag för samma del av muskeln. Bytet gäller bara dagens pass.
+- **Anteckning per övning:** Till exempel sitshöjd eller grepp. Anteckningen visas varje gång övningen är med.
 - **Förslag på högre vikt:** Klarade du alla reps förra gången föreslår appen nästa vikt.
 - **Veckorad** på startsidan som visar vilka dagar du har tränat.
 - **Bilder** som visar start- och slutläge för varje övning.
@@ -23,7 +26,8 @@ En enkel träningsapp för gymmet. Den fungerar i mobilens webbläsare och kan l
 ## Var sparas mina pass?
 
 Bara i webbläsaren på din mobil (localStorage). Inget skickas till någon server.
-Det betyder att passen försvinner om du rensar webbläsarens data eller byter mobil, så spara en kopia ibland under **Historik → Spara kopia**.
+Det gäller också dina anteckningar, egna övningar, byten i schemat och färgtemat.
+Allt försvinner om du rensar webbläsarens data eller byter mobil, så spara en kopia ibland under **Historik → Spara kopia**. Kopian innehåller allt.
 
 ## Publicera appen gratis med GitHub Pages
 
