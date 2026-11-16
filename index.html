@@ -26,7 +26,7 @@
   <header class="top">
     <span data-icon="fitness"></span>
     <h1>Gymma</h1>
-    <button type="button" class="icon-btn" data-action="open-theme" aria-label="Byt färgtema" aria-haspopup="dialog"><span data-icon="palette"></span></button>
+    <button type="button" class="icon-btn" data-action="open-settings" aria-label="Inställningar" aria-haspopup="dialog"><span data-icon="settings"></span></button>
   </header>
 
   <main id="main" tabindex="-1"></main>
@@ -66,14 +66,19 @@
     </form>
   </dialog>
 
-  <dialog id="theme-dialog" aria-labelledby="theme-title">
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
     <div class="picker-head">
-      <h2 id="theme-title">Färgtema</h2>
+      <h2 id="settings-title">Inställningar</h2>
       <button type="button" class="icon-btn" data-action="close-dialog" aria-label="Stäng"><span data-icon="close"></span></button>
     </div>
-    <p class="muted">Välj färg. Ljust eller mörkt läge följer mobilens inställning.</p>
-    <div id="theme-list" class="theme-list" role="group" aria-label="Välj färgtema"></div>
+    <div id="settings-body"></div>
   </dialog>
+
+  <div id="timer-bar" class="timer-bar" role="region" aria-label="Tidtagning" hidden>
+    <span id="timer-time" class="time" role="timer" aria-live="off"></span>
+    <span class="what"><span id="timer-label"></span><span class="bar" aria-hidden="true"><i id="timer-fill"></i></span></span>
+    <span id="timer-buttons" class="timer-buttons"></span>
+  </div>
 
   <div id="status" class="toast" role="status" aria-live="polite"></div>
 

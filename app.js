@@ -5,16 +5,25 @@
 // Inget skickas till någon server.
 //
 // Det som sparas:
-//   active:   pågående pass  { id, start, title, week, exercises: [{ exId, kg, reps, done }] }
+//   active:   pågående pass  { id, start, title, week, exercises: [{ exId, kg, reps, done, setsDone }], timer }
+//             setsDone = hur många set du har bockat av. timer = pågående vila eller tidtagning (se längre ner)
 //   history:  sparade pass   { id, start, end, title, week, exercises: [{ exId, sets: [{ kg, reps }], targetSets, targetReps }] }
 //   custom:   egna övningar  { id, name, group, eq }
-//   settings: inställningar  { theme }
+//   settings: inställningar  { theme, steps: { redskap: kg }, rest: sekunder, sound: true/false }
 //   notes:    anteckningar   { övningens id: text }
 //   rotation: egna byten i schemat { "Muskelgrupp|vecka|plats": övningens id }, vecka och plats räknas från 0
 // Bara sista setet sparas per övning. Äldre pass kan ha flera set – då räknas det sista.
 
 const KEY = 'gymma-v1';
 const NOTE_MAX = 200; // Längsta anteckning, i tecken
+
+// Val under Inställningar
+const STEP_OPTIONS = [0, 0.5, 1, 1.25, 2, 2.5, 5, 10]; // Steg för plus och minus i kg. 0 = automatiskt
+const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180]; // Vila mellan set i sekunder. 0 = räkna inte set
+const STEP_EQUIPMENT = ['maskin', 'kabel', 'hantlar', 'stang']; // Redskap som kan ha eget steg
+function defaultSettings() {
+  return { theme: 'gron', steps: {}, rest: 90, sound: false };
+}
 
 // Färgteman. Färgerna finns i style.css under samma id.
 const THEMES = [
@@ -35,8 +44,13 @@ const $noteDialog = document.getElementById('note-dialog');
 const $noteLabel = document.getElementById('note-label');
 const $noteText = document.getElementById('note-text');
 const $noteDelete = document.getElementById('note-delete');
-const $themeDialog = document.getElementById('theme-dialog');
-const $themeList = document.getElementById('theme-list');
+const $timerBar = document.getElementById('timer-bar');
+const $timerTime = document.getElementById('timer-time');
+const $timerLabel = document.getElementById('timer-label');
+const $timerFill = document.getElementById('timer-fill');
+const $timerButtons = document.getElementById('timer-buttons');
+const $settings = document.getElementById('settings-dialog');
+const $settingsBody = document.getElementById('settings-body');
 const $status = document.getElementById('status');
 
 let view = 'hem';
@@ -46,7 +60,7 @@ let showHow = false;   // Visas de stora bilderna för den öppna övningen?
 let state = load();
 
 function emptyState() {
-  return { active: null, history: [], custom: [], settings: { theme: 'gron' }, notes: {}, rotation: {} };
+  return { active: null, history: [], custom: [], settings: defaultSettings(), notes: {}, rotation: {} };
 }
 
 function load() {
@@ -77,8 +91,17 @@ function normalize(s) {
   s.notes = cleanMap(s.notes, NOTE_MAX);
   s.rotation = cleanMap(s.rotation, 80);
 
-  s.settings = { theme: 'gron', ...(s.settings && typeof s.settings === 'object' ? s.settings : {}) };
+  const set = s.settings && typeof s.settings === 'object' ? s.settings : {};
+  s.settings = { ...defaultSettings(), ...set };
   if (!THEMES.some(t => t.id === s.settings.theme)) s.settings.theme = 'gron';
+  if (!REST_OPTIONS.includes(s.settings.rest)) s.settings.rest = 90;
+  s.settings.sound = s.settings.sound === true;
+  const steps = {};
+  STEP_EQUIPMENT.forEach(id => {
+    const v = Number(set.steps && set.steps[id]);
+    if (v > 0 && STEP_OPTIONS.includes(v)) steps[id] = v;
+  });
+  s.settings.steps = steps;
 
   // Ett pass som pågick i en äldre version (med flera set) görs om till "sista setet".
   if (s.active && Array.isArray(s.active.exercises)) {
@@ -87,6 +110,14 @@ function normalize(s) {
       const last = e.sets[e.sets.length - 1] || {};
       return { exId: e.exId, kg: last.kg ?? '', reps: last.reps ?? '', done: !!last.done };
     });
+    const t = s.active.timer;
+    const okTimer = t && typeof t === 'object' && ['rest', 'work'].includes(t.kind) && typeof t.exId === 'string'
+      && Number.isFinite(t.end) && Number.isFinite(t.total) && t.total > 0;
+    if (!okTimer) delete s.active.timer;
+    else {
+      t.set = Math.min(DEFAULT_SETS, Math.max(1, Math.floor(Number(t.set)) || 1));
+      t.done = t.done === true;
+    }
   } else {
     s.active = null;
   }
@@ -137,11 +168,15 @@ const ICONS = {
   down: 'M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z',
   trending: 'M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z',
   delete: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
-  palette: 'M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z',
   swap: 'M6.99 11 3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z',
   notes: 'M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z',
   edit: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z',
   undo: 'M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z',
+  settings: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+  timer: 'M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9a8.994 8.994 0 0 0 7.03-14.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z',
+  sound: 'M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z',
+  star: 'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z',
+  skip: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z',
   search: 'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
 };
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${ICONS[name]}"/></svg>`;
@@ -364,9 +399,21 @@ function weekCount() {
   return state.history.filter(p => new Date(p.start) >= monday).length;
 }
 
-// Plus och minus på vikten: 1 kg i taget upp till 10 kg, sedan 2,5 kg.
-function stepKg(value, dir) {
+// Eget steg för övningens redskap (kg), eller 0 om steget är automatiskt
+function stepSize(exId) {
+  const q = exEq(exId);
+  return (q && state.settings.steps[q.id]) || 0;
+}
+
+// Plus och minus på vikten. Med eget steg för redskapet går vikten till nästa jämna steg.
+// Automatiskt: 1 kg i taget upp till 10 kg, sedan 2,5 kg.
+function stepKg(value, dir, exId) {
   const v = Number(value) || 0;
+  const fixed = stepSize(exId);
+  if (fixed) {
+    const n = dir > 0 ? Math.floor(v / fixed + 1e-9) + 1 : Math.ceil(v / fixed - 1e-9) - 1;
+    return Math.max(0, round2(n * fixed));
+  }
   if (dir > 0) {
     const step = v < 10 ? 1 : 2.5;
     return round2(Math.floor(v / step + 1e-9) * step + step);
@@ -379,7 +426,7 @@ const stepReps = (value, dir, exId) => Math.max(0, (Number(value) || 0) + dir * 
 // Förslag på högre vikt när du klarade alla reps förra gången
 function suggestedKg(exId, prev) {
   if (!prev || isSek(exId) || !hasKg(prev)) return null;
-  return Number(prev.reps) >= repsFor(exId) ? stepKg(prev.kg, 1) : null;
+  return Number(prev.reps) >= repsFor(exId) ? stepKg(prev.kg, 1, exId) : null;
 }
 
 let toastTimer;
@@ -582,6 +629,40 @@ function stepper(i, field, label, value, attrs, down, up) {
   </div>`;
 }
 
+// Raden som räknar set: prickar, "Set 2 av 4" och knappen Set klart.
+// För övningar i sekunder startar knappen en nedräkning för själva setet.
+const setsDoneOf = e => Math.min(DEFAULT_SETS, Math.max(0, Math.floor(Number(e.setsDone) || 0)));
+
+function setRow(e, i) {
+  if (!state.settings.rest || e.done) return '';
+  const done = setsDoneOf(e);
+  const sek = isSek(e.exId);
+  const t = timerOf();
+  const busy = !!t && !t.done && t.exId === e.exId;
+  let label = `Set ${Math.min(DEFAULT_SETS, done + 1)} av ${DEFAULT_SETS}`;
+  let btn = '';
+  if (busy) {
+    label = t.kind === 'rest' ? `Vila före set ${t.set}` : `Set ${t.set} pågår`;
+  } else if (sek && done < DEFAULT_SETS) {
+    const secs = Number(e.reps) > 0 ? Number(e.reps) : repsFor(e.exId);
+    btn = `<button type="button" class="pill-btn" data-action="set-time" data-i="${i}">${icon('play')} Starta ${secs} sek</button>`;
+  } else if (sek) {
+    label = 'Alla set klara';
+  } else if (done < DEFAULT_SETS - 1) {
+    btn = `<button type="button" class="pill-btn" data-action="set-done" data-i="${i}">${icon('check')} Set klart</button>`;
+  } else {
+    label = 'Sista setet';
+  }
+  return `<div class="setrow">
+    <span class="prog">
+      <span class="dots" aria-hidden="true">${Array.from({ length: DEFAULT_SETS }, (_, k) => `<i class="${k < done ? 'on' : ''}"></i>`).join('')}</span>
+      <span class="lbl">${label}<span class="sr-only">. ${done} av ${DEFAULT_SETS} set klara.</span></span>
+    </span>
+    ${done > 0 && !busy ? `<button type="button" class="icon-btn" data-action="set-undo" data-i="${i}" aria-label="Ångra senaste set">${icon('undo')}</button>` : ''}
+    ${btn}
+  </div>`;
+}
+
 function activeCard(e, i) {
   const name = exName(e.exId);
   const prev = lastResultFor(e.exId);
@@ -610,6 +691,7 @@ function activeCard(e, i) {
     ${actions ? `<div class="card-actions">${actions}</div>` : ''}
     ${noteBlock(e.exId)}
     ${hintFor(e, prev)}
+    ${setRow(e, i)}
     <div class="steppers">
       ${stepper(i, 'kg', 'Kg', fmtNum(e.kg), 'inputmode="decimal"', 'Minska vikten', 'Öka vikten')}
       ${stepper(i, 'reps', `${sek ? 'Sek' : 'Reps'} i sista setet`, e.reps, 'inputmode="numeric" pattern="[0-9]*"', sek ? 'Färre sekunder' : 'Färre reps', sek ? 'Fler sekunder' : 'Fler reps')}
@@ -724,8 +806,122 @@ function trendChip(t) {
   return `<span class="trend">${esc(t.text)}</span>`;
 }
 
+// Historik har två delar: listan med pass och sidan Framsteg (bara skärmläge)
+let histTab = 'pass';
+let histPeriod = 4; // Framsteg för de senaste 4 eller 13 veckorna. 0 = allt
+
 function viewHistorik() {
-  let h = '<h2>Historik</h2>';
+  const tab = (id, label, ico) => `<button type="button" data-action="hist-tab" data-tab="${id}" aria-pressed="${histTab === id}">${icon(ico)}${label}</button>`;
+  return `<h2>Historik</h2>
+    <div class="seg2" role="group" aria-label="Visa">${tab('pass', 'Pass', 'history')}${tab('framsteg', 'Framsteg', 'trending')}</div>
+    ${histTab === 'framsteg' ? viewFramsteg() : viewPassList()}`;
+}
+
+// Räknar ihop framstegen för en period. weeks = antal veckor bakåt (med den här veckan), 0 = allt.
+function progressStats(weeks) {
+  const goal = SCHEDULE.length;
+  const thisMonday = mondayOf(new Date());
+  const firstMonday = state.history.length ? mondayOf(new Date(state.history[0].start)) : thisMonday;
+  const wanted = weeks
+    ? new Date(thisMonday.getFullYear(), thisMonday.getMonth(), thisMonday.getDate() - 7 * (weeks - 1))
+    : firstMonday;
+  const from = wanted < firstMonday ? firstMonday : wanted; // Perioden börjar inte före ditt första pass
+
+  const seen = new Map();    // Förra resultatet per övning
+  const best = new Map();    // Bästa resultatet hittills per övning
+  const records = new Map(); // Senaste rekordet i perioden per övning
+  const ups = new Map();     // Ökningar per muskelgrupp
+  const perWeek = new Map(); // Antal pass per vecka
+  let passes = 0;
+  let upCount = 0;
+
+  for (const p of state.history) {
+    const d = new Date(p.start);
+    const inPeriod = d >= from;
+    if (inPeriod) {
+      passes++;
+      const wk = dayKey(mondayOf(d));
+      perWeek.set(wk, (perWeek.get(wk) || 0) + 1);
+    }
+    for (const e of p.exercises) {
+      const r = lastSet(e);
+      const t = trend(r, seen.get(e.exId), e.exId);
+      seen.set(e.exId, r);
+      if (inPeriod && t.dir === 'up') {
+        upCount++;
+        const g = exGroup(e.exId);
+        ups.set(g, (ups.get(g) || 0) + 1);
+      }
+      // Rekord: mer än alla tidigare gånger. Vikt räknas om övningen har vikt, annars reps eller sekunder.
+      const useKg = hasKg(r);
+      const val = Number(useKg ? r.kg : r.reps) || 0;
+      const b = best.get(e.exId);
+      if (b && b.useKg === useKg && val > b.val && inPeriod) {
+        records.set(e.exId, { exId: e.exId, start: p.start, val, delta: round2(val - b.val), useKg });
+      }
+      if (!b || b.useKg !== useKg || val > b.val) best.set(e.exId, { val, useKg });
+    }
+  }
+
+  // Veckor med alla pass. Veckan som pågår räknas först när den är komplett.
+  let fullWeeks = 0;
+  let countedWeeks = 0;
+  for (let m = new Date(from); m <= thisMonday; m = new Date(m.getFullYear(), m.getMonth(), m.getDate() + 7)) {
+    const n = perWeek.get(dayKey(m)) || 0;
+    const current = dayKey(m) === dayKey(thisMonday);
+    if (current && n < goal) continue;
+    countedWeeks++;
+    if (n >= goal) fullWeeks++;
+  }
+
+  return {
+    passes, upCount, fullWeeks, countedWeeks, ups,
+    records: [...records.values()].sort((a, b) => new Date(b.start) - new Date(a.start)),
+  };
+}
+
+function viewFramsteg() {
+  if (!state.history.length) return '<p>Här visas dina framsteg när du har sparat några pass.</p>';
+  const st = progressStats(histPeriod);
+  const period = (weeks, label) => `<button type="button" class="filter-chip" data-action="hist-period" data-weeks="${weeks}"
+    aria-pressed="${histPeriod === weeks}">${histPeriod === weeks ? icon('check') : ''}${label}</button>`;
+  const groups = allGroups();
+  const max = Math.max(1, ...groups.map(g => st.ups.get(g) || 0));
+
+  return `<div class="chips wrap" role="group" aria-label="Period">${period(4, '4 veckor')}${period(13, '3 månader')}${period(0, 'Allt')}</div>
+    <dl class="stat-row">
+      <div><dt>pass</dt><dd>${st.passes}</dd></div>
+      <div><dt>${st.upCount === 1 ? 'ökning' : 'ökningar'}</dt><dd>${st.upCount}</dd></div>
+      <div><dt>veckor med alla pass</dt><dd>${st.countedWeeks ? `${st.fullWeeks} av ${st.countedWeeks}` : '–'}</dd></div>
+    </dl>
+    <section class="card progress-card">
+      <h3>Nya rekord</h3>
+      ${st.records.length
+        ? `<ul class="plain recs">${st.records.slice(0, 10).map(r => {
+          const unit = r.useKg ? 'kg' : unitOf(r.exId);
+          return `<li class="rec">
+            ${icon('star')}
+            <span class="txt"><span class="name">${esc(exName(r.exId))}</span><span class="meta">${fmtNum(r.val)} ${unit} · ${esc(shortDate(r.start).toLowerCase())}</span></span>
+            ${trendChip({ dir: 'up', text: `${fmtNum(r.delta)} ${unit}` })}
+          </li>`;
+        }).join('')}</ul>${st.records.length > 10 ? `<p class="muted small">Visar de 10 senaste av ${st.records.length}.</p>` : ''}`
+        : '<p class="muted">Inga nya rekord i perioden än.</p>'}
+      <p class="muted small">Ett rekord är när sista setet blev tyngre än alla tidigare gånger. För övningar utan vikt räknas reps eller sekunder.</p>
+    </section>
+    <section class="card progress-card">
+      <h3>Ökningar per muskelgrupp</h3>
+      <ul class="plain bars">
+        ${groups.map(g => {
+          const n = st.ups.get(g) || 0;
+          return `<li><span class="g">${esc(g)}</span><span class="b" aria-hidden="true"><i style="width:${(n / max) * 100}%"></i></span><span class="v">${n}<span class="sr-only"> ${n === 1 ? 'ökning' : 'ökningar'}</span></span></li>`;
+        }).join('')}
+      </ul>
+      <p class="muted small">En ökning är när sista setet blev bättre än förra gången: mer vikt, eller fler reps med samma vikt.</p>
+    </section>`;
+}
+
+function viewPassList() {
+  let h = '';
   if (!state.history.length) h += '<p>Här hamnar dina pass när du avslutat dem.</p>';
 
   const trends = trendsByPass();
@@ -917,7 +1113,7 @@ function rerender() {
   if (el && $main.contains(el)) {
     if (el.id) sel = `#${CSS.escape(el.id)}`;
     else if (el.dataset && el.dataset.action) {
-      sel = ['action', 'i', 'field', 'dir', 'group', 'eq', 'day', 'id', 'week', 'slot'].filter(k => el.dataset[k] != null)
+      sel = ['action', 'i', 'field', 'dir', 'group', 'eq', 'day', 'id', 'week', 'slot', 'tab', 'weeks'].filter(k => el.dataset[k] != null)
         .map(k => `[data-${k}="${CSS.escape(el.dataset[k])}"]`).join('');
     }
   }
@@ -941,6 +1137,20 @@ function scrollToEl(el) {
   el.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
 }
 
+// Efter Set klart, Ångra eller när en tid kvitteras: fokus på knappen i set-raden om den finns,
+// annars på övningens namn
+function focusSetRow(i) {
+  if (view !== 'pass' || !state.active) {
+    // På en annan flik: knappen i tidraden försvann, så fokus går till sidans innehåll
+    const el = document.activeElement;
+    if (!el || el === document.body || $timerBar.contains(el)) $main.focus({ preventScroll: true });
+    return;
+  }
+  const card = document.getElementById(`ex-${i}`);
+  const target = (card && card.querySelector('.setrow .pill-btn')) || document.getElementById(`ex-name-${i}`);
+  if (target) target.focus({ preventScroll: true });
+}
+
 // Efter att en övning öppnats eller blivit klar: flytta fokus till nästa steg
 function focusPassStep() {
   const open = currentOpen();
@@ -961,12 +1171,45 @@ function applyTheme() {
   if (meta && color) meta.setAttribute('content', color);
 }
 
-function renderThemes() {
-  $themeList.innerHTML = THEMES.map(t => `<button type="button" class="theme-opt" data-theme="${t.id}"
+const fmtRest = sec => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+
+function themeButtons() {
+  return THEMES.map(t => `<button type="button" class="theme-opt" data-theme="${t.id}"
     data-action="set-theme" data-id="${t.id}" aria-pressed="${state.settings.theme === t.id}">
     <span class="swatch" aria-hidden="true"><span></span></span>${esc(t.name)}
     ${state.settings.theme === t.id ? icon('check') : ''}
   </button>`).join('');
+}
+
+function renderSettings() {
+  const st = state.settings;
+  const option = (value, label, current) => `<option value="${value}" ${value === current ? 'selected' : ''}>${esc(label)}</option>`;
+  $settingsBody.innerHTML = `
+    <h3 class="set-sec">Färgtema</h3>
+    <p class="muted small">Ljust eller mörkt läge följer mobilens inställning.</p>
+    <div id="theme-list" class="theme-list" role="group" aria-label="Välj färgtema">${themeButtons()}</div>
+
+    <h3 class="set-sec">Steg för plus och minus</h3>
+    <p class="muted small">Så mycket ändras vikten när du trycker plus eller minus. Automatiskt betyder 1 kg upp till 10 kg, sedan 2,5 kg.</p>
+    ${STEP_EQUIPMENT.map(id => `<div class="set-row">
+      <label for="step-${id}">${eqIcon(id)}${esc(eqById(id).name)}</label>
+      <select id="step-${id}" data-setting="step" data-eq="${id}">
+        ${STEP_OPTIONS.map(v => option(v, v ? `${fmtNum(v)} kg` : 'Automatiskt', st.steps[id] || 0)).join('')}
+      </select>
+    </div>`).join('')}
+
+    <h3 class="set-sec">Vila mellan set</h3>
+    <p class="muted small">I passet trycker du Set klart efter varje set. Då räknas seten och vilan räknas ner.</p>
+    <div class="set-row">
+      <label for="set-rest">${icon('timer')}Nedräkning</label>
+      <select id="set-rest" data-setting="rest">
+        ${REST_OPTIONS.map(v => option(v, v ? fmtRest(v) : 'Räkna inte set', st.rest)).join('')}
+      </select>
+    </div>
+    <div class="set-row">
+      <label for="set-sound">${icon('sound')}Ljud när vilan är slut</label>
+      <input type="checkbox" class="switch" id="set-sound" data-setting="sound" ${st.sound ? 'checked' : ''}>
+    </div>`;
 }
 
 // ---------- Åtgärder ----------
@@ -995,6 +1238,8 @@ function startPass(day) {
 }
 
 function endPass(target, message) {
+  clearTimer();
+  histTab = 'pass';
   state.active = null;
   openIdx = null;
   showHow = false;
@@ -1128,6 +1373,169 @@ function renderPicker() {
   $pickerList.innerHTML = h || '<p>Ingen övning hittades.</p>';
 }
 
+// ---------- Vila mellan set och tidtagning ----------
+// Tidtagningen sparas i det pågående passet: active.timer = { kind, exId, set, end, total, done }
+//   kind:  'rest' = vila före nästa set, 'work' = ett set som mäts i sekunder (t.ex. plankan)
+//   end:   klockslaget (i millisekunder) när tiden är slut. Tiden räknas mot klockan,
+//          så den stämmer även om skärmen har varit släckt en stund.
+//   total: hela tiden i sekunder, set: vilket set det gäller, done: tiden är slut men inte kvitterad
+
+let tick = null;      // Uppdaterar raden fyra gånger per sekund medan en tid går
+let wakeLock = null;  // Håller skärmen tänd under nedräkningen, där mobilen stöder det
+let audioCtx = null;  // Ljud, bara om du slagit på det under Inställningar
+let barState = '';
+let barHeight = 0;
+
+const timerOf = () => (state.active && state.active.timer) || null;
+
+function startTimer(kind, exId, seconds, setNo) {
+  state.active.timer = { kind, exId, set: setNo, end: Date.now() + seconds * 1000, total: seconds, done: false };
+  save();
+  if (state.settings.sound) wakeSound();
+  runTimer();
+}
+
+function runTimer() {
+  if (!tick) tick = setInterval(onTick, 250);
+  keepAwake(true);
+  renderTimer();
+}
+
+function stopTicking() {
+  if (tick) { clearInterval(tick); tick = null; }
+  keepAwake(false);
+}
+
+function clearTimer() {
+  if (state.active && state.active.timer) {
+    delete state.active.timer;
+    save();
+  }
+  stopTicking();
+  renderTimer();
+}
+
+function onTick() {
+  const t = timerOf();
+  if (!t) { clearTimer(); return; }
+  if (!t.done && Date.now() >= t.end) { timerEnded(t); return; }
+  if (t.done && Date.now() - t.end > 60000) { clearTimer(); return; } // Kvitteras av sig själv efter en minut
+  renderTimer();
+}
+
+function timerEnded(t) {
+  const a = state.active;
+  const e = a.exercises.find(x => x.exId === t.exId);
+  signal();
+  if (t.kind === 'work' && e) {
+    // Ett set i sekunder är klart: räkna det och börja vila, om det finns fler set kvar
+    e.setsDone = Math.min(DEFAULT_SETS, setsDoneOf(e) + 1);
+    if (e.setsDone < DEFAULT_SETS && state.settings.rest) {
+      const rest = state.settings.rest;
+      a.timer = { kind: 'rest', exId: t.exId, set: e.setsDone + 1, end: Date.now() + rest * 1000, total: rest, done: false };
+      save();
+      announce(`Set ${t.set} klart. Vila ${fmtRest(rest)}.`);
+      if (view === 'pass') rerender();
+      renderTimer();
+      return;
+    }
+  }
+  t.done = true;
+  t.end = Math.min(t.end, Date.now());
+  save();
+  keepAwake(false);
+  announce(t.kind === 'rest' ? `Vilan är slut. Dags för set ${t.set}.` : 'Sista setet är klart.');
+  if (view === 'pass') rerender();
+  renderTimer();
+}
+
+function renderTimer() {
+  const t = timerOf();
+  $timerBar.hidden = !t;
+  document.body.classList.toggle('has-timer', !!t);
+  if (!t) { barState = ''; return; }
+  const key = `${t.kind}|${t.done}|${t.set}|${t.exId}`;
+  if (key !== barState) {
+    // Text och knappar byts bara när läget ändras, så att fokus inte försvinner varje sekund
+    barState = key;
+    const rest = t.kind === 'rest';
+    $timerBar.classList.toggle('done', !!t.done);
+    $timerLabel.textContent = t.done
+      ? (rest ? `Dags för set ${t.set}` : 'Sista setet är klart')
+      : (rest ? `Vila före set ${t.set}` : `${exName(t.exId)}, set ${t.set}`);
+    $timerButtons.innerHTML = t.done
+      ? '<button type="button" data-action="timer-clear">OK</button>'
+      : `<button type="button" data-action="timer-add" aria-label="+30 s, lägg till 30 sekunder">+30 s</button>
+         <button type="button" data-action="timer-skip" aria-label="${rest ? 'Hoppa över vilan' : 'Stopp, avsluta setet nu'}">${icon('skip')}${rest ? 'Hoppa' : 'Stopp'}</button>`;
+  }
+  const leftMs = Math.max(0, t.end - Date.now());
+  $timerTime.textContent = t.done ? '0:00' : fmtRest(Math.ceil(leftMs / 1000));
+  $timerFill.style.width = t.done ? '100%' : `${Math.min(100, Math.max(0, 100 - (leftMs / (t.total * 1000)) * 100))}%`;
+  // Raden kan bli två rader hög på smala skärmar eller med stor text. Sidan och meddelandena flyttar sig efter den.
+  const h = $timerBar.offsetHeight;
+  if (h && h !== barHeight) { barHeight = h; document.body.style.setProperty('--timer-h', `${h}px`); }
+}
+
+// När appen öppnas igen: fortsätt en tid som fortfarande går, annars ta bort den
+function resumeTimer() {
+  const t = timerOf();
+  if (t && !t.done && Date.now() < t.end) runTimer();
+  else clearTimer();
+}
+
+// Håller skärmen tänd under nedräkningen. Alla mobiler stöder inte det – då händer ingenting.
+async function keepAwake(on) {
+  try {
+    if (on && !wakeLock && navigator.wakeLock && !document.hidden) {
+      const lock = await navigator.wakeLock.request('screen');
+      lock.addEventListener('release', () => { if (wakeLock === lock) wakeLock = null; });
+      wakeLock = lock;
+      if (!timerOf() || timerOf().done) keepAwake(false); // Tiden hann ta slut medan vi väntade
+    } else if (!on && wakeLock) {
+      const lock = wakeLock;
+      wakeLock = null;
+      await lock.release();
+    }
+  } catch (e) { wakeLock = null; }
+}
+
+// Signal när tiden är slut: vibration där det går, och ljud om du har slagit på det
+function signal() {
+  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) { /* stöds inte */ }
+  if (state.settings.sound) beep();
+}
+
+// Webbläsaren tillåter bara ljud som har väckts av ett tryck. Därför väcks ljudet när du trycker Set klart.
+function wakeSound() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtx = audioCtx || new Ctx();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  } catch (e) { return null; }
+}
+
+function beep() {
+  const ctx = wakeSound();
+  if (!ctx) return;
+  try {
+    [0, 0.25].forEach(at => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const t0 = ctx.currentTime + at;
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.3, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.2);
+    });
+  } catch (e) { /* inget ljud */ }
+}
+
 // ---------- Anteckningar ----------
 
 let noteExId = null; // Vilken övning anteckningsrutan gäller
@@ -1202,12 +1610,14 @@ function importData(file) {
       const s = JSON.parse(reader.result);
       if (!s || !Array.isArray(s.history)) throw new Error('fel format');
       if (!confirm(`Kopian innehåller ${s.history.length} pass. Ersätta det som finns nu?`)) return;
+      stopTicking();
       state = normalize({ ...emptyState(), ...s });
       openIdx = null;
       showHow = false;
       save();
       applyTheme();
       render();
+      resumeTimer();
       announce('Kopian är inläst.');
     } catch (e) {
       announce('Filen kunde inte läsas. Är det en kopia från Gymma?');
@@ -1219,7 +1629,8 @@ function importData(file) {
 
 // ---------- Händelser ----------
 
-const PASS_ACTIONS = ['open-ex', 'toggle-how', 'step', 'bump', 'done', 'remove-ex', 'swap-ex', 'open-picker', 'finish', 'cancel'];
+const PASS_ACTIONS = ['open-ex', 'toggle-how', 'step', 'bump', 'done', 'remove-ex', 'swap-ex', 'open-picker', 'finish', 'cancel',
+  'set-done', 'set-time', 'set-undo', 'timer-add', 'timer-skip', 'timer-clear'];
 
 document.addEventListener('click', ev => {
   const btn = ev.target.closest('[data-action]');
@@ -1255,7 +1666,7 @@ document.addEventListener('click', ev => {
       const e = a.exercises[i];
       const dir = Number(btn.dataset.dir);
       if (btn.dataset.field === 'kg') {
-        const v = stepKg(e.kg, dir);
+        const v = stepKg(e.kg, dir, e.exId);
         e.kg = v === 0 ? '' : v;
       } else {
         e.reps = stepReps(e.reps, dir, e.exId);
@@ -1263,6 +1674,66 @@ document.addEventListener('click', ev => {
       save(); rerender();
       break;
     }
+    case 'set-done': {
+      // Ett set är gjort: räkna det och börja vila
+      const e = a.exercises[i];
+      if (!e || isSek(e.exId) || !state.settings.rest) return;
+      e.setsDone = Math.min(DEFAULT_SETS - 1, setsDoneOf(e) + 1);
+      startTimer('rest', e.exId, state.settings.rest, e.setsDone + 1);
+      render();
+      focusSetRow(i);
+      announce(`Set ${e.setsDone} klart. Vila ${fmtRest(state.settings.rest)}.`);
+      break;
+    }
+    case 'set-time': {
+      // Övning i sekunder: räkna ner setet
+      const e = a.exercises[i];
+      if (!e || !isSek(e.exId) || setsDoneOf(e) >= DEFAULT_SETS) return;
+      const secs = Number(e.reps) > 0 ? Number(e.reps) : repsFor(e.exId);
+      startTimer('work', e.exId, secs, setsDoneOf(e) + 1);
+      render();
+      focusSetRow(i);
+      announce(`Set ${setsDoneOf(e) + 1} startar. ${secs} sekunder.`);
+      break;
+    }
+    case 'set-undo': {
+      const e = a.exercises[i];
+      if (!e) return;
+      e.setsDone = Math.max(0, setsDoneOf(e) - 1);
+      const t = timerOf();
+      if (t && t.exId === e.exId) clearTimer();
+      save(); render();
+      focusSetRow(i);
+      announce(`Ångrat. ${e.setsDone} av ${DEFAULT_SETS} set klara.`);
+      break;
+    }
+    case 'timer-add': {
+      const t = timerOf();
+      if (!t || t.done) return;
+      t.end += 30000;
+      t.total += 30;
+      save(); renderTimer();
+      break;
+    }
+    case 'timer-skip': {
+      const t = timerOf();
+      if (!t || t.done) return;
+      if (t.kind === 'work') {
+        t.end = Date.now(); // Setet avslutas nu och räknas
+        timerEnded(t);
+      } else {
+        clearTimer();
+        if (view === 'pass') render();
+      }
+      focusSetRow(currentOpen());
+      break;
+    }
+    case 'timer-clear':
+      clearTimer();
+      if (view === 'pass') render();
+      focusSetRow(currentOpen());
+      break;
+
     case 'bump': {
       const e = a.exercises[currentOpen()];
       const sug = e && suggestedKg(e.exId, lastResultFor(e.exId));
@@ -1281,6 +1752,7 @@ document.addEventListener('click', ev => {
         return;
       }
       e.done = true;
+      if (timerOf() && timerOf().exId === e.exId) clearTimer();
       const next = a.exercises.findIndex((x, k) => k > i && !x.done);
       openIdx = next >= 0 ? next : null;
       showHow = false;
@@ -1291,6 +1763,7 @@ document.addEventListener('click', ev => {
     }
     case 'remove-ex':
       if (!confirm(`Ta bort ${exName(a.exercises[i].exId)} från passet?`)) return;
+      if (timerOf() && timerOf().exId === a.exercises[i].exId) clearTimer();
       a.exercises.splice(i, 1);
       openIdx = null;
       showHow = false;
@@ -1319,6 +1792,7 @@ document.addEventListener('click', ev => {
         // Byt på samma plats i passet. Finns övningen redan med byts ingenting.
         const at = a.exercises[m.index];
         if (!at || at.exId !== m.current || a.exercises.some(e => e.exId === id)) { $picker.close(); break; }
+        if (timerOf() && timerOf().exId === m.current) clearTimer();
         if (exGroup(id) === exGroup(m.current)) {
           a.exercises[m.index] = newEntry(id);
           openIdx = m.index;
@@ -1396,24 +1870,35 @@ document.addEventListener('click', ev => {
       announce('Schemat är återställt.');
       break;
 
+    case 'hist-tab':
+      histTab = btn.dataset.tab === 'framsteg' ? 'framsteg' : 'pass';
+      rerender();
+      break;
+    case 'hist-period':
+      histPeriod = Number(btn.dataset.weeks) || 0;
+      rerender();
+      break;
+
     case 'show-pass':
+      histTab = 'pass';
       show('historik');
       showPass(btn.dataset.id);
       break;
 
     case 'export': exportData(); break;
 
-    case 'open-theme':
-      renderThemes();
-      $themeDialog.showModal();
+    case 'open-settings':
+      renderSettings();
+      $settings.showModal();
       break;
     case 'set-theme': {
       if (!THEMES.some(t => t.id === btn.dataset.id)) return;
       state.settings.theme = btn.dataset.id;
       save();
       applyTheme();
-      renderThemes();
-      const again = $themeList.querySelector('[aria-pressed="true"]');
+      const list = document.getElementById('theme-list');
+      list.innerHTML = themeButtons();
+      const again = list.querySelector('[aria-pressed="true"]');
       if (again) again.focus();
       break;
     }
@@ -1421,9 +1906,32 @@ document.addEventListener('click', ev => {
 });
 
 // Tryck utanför en dialogruta stänger den
-[$picker, $themeDialog, $noteDialog].forEach(d => d.addEventListener('click', ev => {
+[$picker, $settings, $noteDialog].forEach(d => d.addEventListener('click', ev => {
   if (ev.target === d) d.close();
 }));
+
+// Inställningar sparas direkt när du ändrar dem
+$settings.addEventListener('change', ev => {
+  const el = ev.target;
+  const st = state.settings;
+  if (el.dataset.setting === 'step' && STEP_EQUIPMENT.includes(el.dataset.eq)) {
+    const v = Number(el.value);
+    if (v > 0 && STEP_OPTIONS.includes(v)) st.steps[el.dataset.eq] = v;
+    else delete st.steps[el.dataset.eq];
+  } else if (el.dataset.setting === 'rest') {
+    const v = Number(el.value);
+    st.rest = REST_OPTIONS.includes(v) ? v : 90;
+    if (!st.rest) clearTimer();
+  } else if (el.dataset.setting === 'sound') {
+    st.sound = el.checked;
+    if (st.sound) beep(); // Så hör du direkt hur det låter
+  } else {
+    return;
+  }
+  save();
+});
+// När rutan stängs ritas vyn om, så att nya inställningar syns direkt
+$settings.addEventListener('close', () => rerender());
 
 document.getElementById('note-form').addEventListener('submit', ev => {
   ev.preventDefault();
@@ -1478,5 +1986,14 @@ $search.addEventListener('input', renderPicker);
 // Byt färger direkt om mobilen växlar mellan ljust och mörkt läge
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
+// När appen blir synlig igen: räkna om tiden direkt och håll skärmen tänd om en tid fortfarande går
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !timerOf()) return;
+  onTick();
+  const t = timerOf();
+  if (t && !t.done) keepAwake(true);
+});
+
 applyTheme();
 render();
+resumeTimer();

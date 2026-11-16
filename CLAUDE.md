@@ -18,3 +18,8 @@
 - Anteckningar per övning sparas i `notes` som `{ övningens id: text }`, högst 200 tecken.
 - Byten som Sara gör i schemat sparas i `rotation` som `{ "Muskelgrupp|vecka|plats": id }` och läggs ovanpå `ROTATION`. Läs alltid schemat med `rotWeek(grupp, vecka)`, aldrig direkt ur `ROTATION`, annars syns inte hennes byten. Ett byte gäller bara om övningen finns kvar och hör till samma muskelgrupp.
 - Väljaren (`openPicker`) har tre lägen: lägg till i passet, byt i dagens pass och byt i schemat.
+- Inställningarna ligger i `settings`: `theme`, `steps` (`{ redskap: kg }`, saknas = automatiskt), `rest` (sekunder vila, 0 = räkna inte set) och `sound`. Nya inställningar får ett förvalt värde i `defaultSettings()` och kontrolleras i `normalize()`, så att gamla data fungerar.
+- Plus och minus för vikt går alltid genom `stepKg(värde, riktning, exId)`, så att steget för övningens redskap används. Det gäller även förslaget på högre vikt.
+- Set-räknaren och vilan finns bara i det pågående passet: `setsDone` per övning och `active.timer` (`kind` är `rest` eller `work`, `end` är en klocktid). Räkna alltid mot klockan, inte antal tick, eftersom mobilen pausar sidan i bakgrunden. Inget av detta sparas i historiken.
+- Raden för tidtagning (`#timer-bar`) ligger ovanför menyn. Allt som ligger fast ovanför menyn räknar från `--above-menu`, och sidan flyttar sig efter `--timer-h`.
+- Framsteg räknas fram ur historiken i `progressStats(veckor)` och sparas inte. Ett rekord är när sista setet är högre än alla tidigare för samma övning.
