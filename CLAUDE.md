@@ -13,3 +13,5 @@
 - Färgteman: fem lugna teman (gron, rosa, bla, gra, sand) som CSS-variabler överst i `style.css`, i ljus och mörk variant. Valet sparas i `settings.theme`. Nya färger ska klara WCAG AA (4,5:1 för text).
 - Passvyn visar en öppen övning i taget. Vilken som är öppen är bara skärmläge och sparas inte.
 - Testa i en webbläsare med mobilbredd (320–390 px) innan du öppnar en pull request: hela passflödet, gamla sparade data och båda färglägena.
+- Testa också med förstorad text: 200 % på 360–390 px och 150 % på 320 px. Inget får sticka ut utanför skärmen eller klippas. Använd `rem` för sådant som ska växa med texten och `px` för fasta ytor som bilder och ikoner.
+- Historiken hålls i tidsordning efter passets start. Ett pass som pågått längre än 6 timmar räknas som kvarglömt och visas utan längd i minuter.

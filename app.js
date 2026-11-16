@@ -7,7 +7,7 @@
 // Det som sparas:
 //   active:   pågående pass  { id, start, title, week, exercises: [{ exId, kg, reps, done }] }
 //   history:  sparade pass   { id, start, end, title, week, exercises: [{ exId, sets: [{ kg, reps }], targetSets, targetReps }] }
-//   custom:   egna övningar  { id, name, group }
+//   custom:   egna övningar  { id, name, group, eq }
 //   settings: inställningar  { theme }
 // Bara sista setet sparas per övning. Äldre pass kan ha flera set – då räknas det sista.
 
@@ -58,7 +58,8 @@ function normalize(s) {
         .filter(e => e && e.exId)
         .map(e => ({ ...e, sets: Array.isArray(e.sets) ? e.sets.filter(Boolean) : [] }))
         .filter(e => e.sets.length),
-    }));
+    }))
+    .sort(byStart);
 
   s.custom = (Array.isArray(s.custom) ? s.custom : [])
     .filter(c => c && c.id && c.name)
@@ -78,6 +79,11 @@ function normalize(s) {
     s.active = null;
   }
   return s;
+}
+
+// Äldst först. Ett pass som avslutas flera dagar för sent hamnar ändå på rätt plats.
+function byStart(a, b) {
+  return new Date(a.start) - new Date(b.start);
 }
 
 function save() {
@@ -187,14 +193,30 @@ const dayKey = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 const mondayOf = d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
 
 function minutesBetween(a, b) {
+  if (a == null || b == null) return null;
   const ms = new Date(b) - new Date(a);
-  return Number.isFinite(ms) ? Math.max(1, Math.round(ms / 60000)) : null;
+  return Number.isFinite(ms) && ms >= 0 ? Math.max(1, Math.round(ms / 60000)) : null;
+}
+// Passets längd i minuter. Längre än 6 timmar betyder att passet glömdes kvar – då visas ingen tid.
+const MAX_PASS_MIN = 360;
+function passMinutes(start, end) {
+  const mins = minutesBetween(start, end);
+  return mins != null && mins <= MAX_PASS_MIN ? mins : null;
+}
+const isToday = iso => dayKey(new Date(iso)) === dayKey(new Date());
+// Har det pågående passet blivit liggande? (startat en annan dag eller för mer än 6 timmar sedan)
+const isStale = a => !isToday(a.start) || passMinutes(a.start, new Date()) == null;
+// "fre 13 nov kl. 18.00"
+function startedText(iso) {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${shortDate(iso).toLowerCase()} kl. ${pad(d.getHours())}.${pad(d.getMinutes())}`;
 }
 
-// Vilken vecka i rotationen är det? Räknas i hela veckor från en fast måndag,
-// så att rotationen fortsätter i samma takt över årsskiften.
 // Antal veckor i rotationen (lika många rader per muskelgrupp i ROTATION)
 const ROT_WEEKS = Math.max(1, ...Object.values(ROTATION).map(r => r.length));
+// Vilken vecka i rotationen är det? Räknas i hela veckor från en fast måndag,
+// så att rotationen fortsätter i samma takt över årsskiften.
 const ROTATION_START = Date.UTC(2026, 10, 9); // Måndag 9 november 2026 = vecka 1
 function currentWeek() {
   const m = mondayOf(new Date());
@@ -278,6 +300,15 @@ function trendsByPass() {
   return out;
 }
 
+// Det pass för en viss dag i schemat som sparats i dag (det senaste), annars null
+function todaysDonePass(s) {
+  for (let i = state.history.length - 1; i >= 0; i--) {
+    const p = state.history[i];
+    if (isToday(p.start) && String(p.title || '').startsWith(`${s.name} –`)) return p;
+  }
+  return null;
+}
+
 function weekCount() {
   const monday = mondayOf(new Date());
   return state.history.filter(p => new Date(p.start) >= monday).length;
@@ -336,15 +367,15 @@ function weekStrip() {
   let h = '<ol class="weekstrip" aria-label="Den här veckan">';
   for (let k = 0; k < 7; k++) {
     const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + k);
-    const isToday = dayKey(d) === dayKey(now);
+    const current = dayKey(d) === dayKey(now);
     const done = trained.has(dayKey(d));
     const planned = SCHEDULE.some(s => s.day === d.getDay());
-    const cls = [done ? 'done' : '', isToday ? 'today' : '', !planned && !done ? 'rest' : ''].filter(Boolean).join(' ');
+    const cls = [done ? 'done' : '', current ? 'today' : '', !planned && !done ? 'rest' : ''].filter(Boolean).join(' ');
     const what = done ? 'tränat' : planned ? 'pass i schemat' : 'vilodag';
     h += `<li>
       <span class="d" aria-hidden="true">${DAYS_SHORT[d.getDay()]}</span>
       <span class="dot ${cls}" aria-hidden="true">${done ? icon('check') : d.getDate()}</span>
-      <span class="sr-only">${cap(DAYS_LONG[d.getDay()])} ${d.getDate()}${isToday ? ', i dag' : ''}: ${what}</span>
+      <span class="sr-only">${cap(DAYS_LONG[d.getDay()])} ${d.getDate()}${current ? ', i dag' : ''}: ${what}</span>
     </li>`;
   }
   return h + '</ol>';
@@ -377,13 +408,31 @@ function viewHem() {
       <p class="overline">Pass pågår</p>
       <h2>${esc(splitTitle(a.title).main)}</h2>
       ${progressBar(done, a.exercises.length)}
-      <p>${done} av ${plural(a.exercises.length, 'övning', 'övningar')} klara</p>
+      <p>${done} av ${plural(a.exercises.length, 'övning', 'övningar')} klara${isStale(a) ? `. Startat ${esc(startedText(a.start))}.` : ''}</p>
       <button type="button" class="btn primary wide" data-action="goto" data-view="pass">${icon('play')} Fortsätt passet</button>
     </section>`;
   } else {
     const today = todaysSchedule();
     const week = activeWeek();
-    if (today) {
+    const donePass = today && todaysDonePass(today);
+    if (donePass) {
+      const ups = (trendsByPass().get(donePass.id) || []).filter(t => t.dir === 'up').length;
+      const mins = passMinutes(donePass.start, donePass.end);
+      const facts = [
+        plural(donePass.exercises.length, 'övning', 'övningar'),
+        mins ? `${mins} min` : '',
+        ups ? plural(ups, 'ökning', 'ökningar') : '',
+      ].filter(Boolean).join(' · ');
+      h += `<section class="hero">
+        <div class="hero-top"><p class="overline">Dagens pass</p>${weekSelect()}</div>
+        <h2>${esc(groupsTitle(today))}</h2>
+        <p class="hero-done">${icon('check_circle')}<span>Klart för i dag! ${esc(facts)}.</span></p>
+        <div class="stack">
+          <button type="button" class="btn primary wide" data-action="show-pass" data-id="${esc(donePass.id)}">Visa passet</button>
+          <button type="button" class="text-btn" data-action="start" data-day="${today.day}">Kör passet en gång till</button>
+        </div>
+      </section>`;
+    } else if (today) {
       h += `<section class="hero">
         <div class="hero-top"><p class="overline">Dagens pass</p>${weekSelect()}</div>
         <h2>${esc(groupsTitle(today))}</h2>
@@ -406,8 +455,12 @@ function viewHem() {
 
   const last = state.history[state.history.length - 1];
   const lastDate = last ? new Date(last.start) : null;
+  const count = weekCount();
+  const goal = SCHEDULE.length;
   h += `<dl class="stat-row">
-    <div><dt>pass denna vecka</dt><dd>${weekCount()} av ${SCHEDULE.length}</dd></div>
+    <div>${count > goal
+      ? `<dt>pass denna vecka, målet var ${goal}</dt><dd>${count}</dd>`
+      : `<dt>pass denna vecka</dt><dd>${count} av ${goal}</dd>`}</div>
     <div><dt>pass totalt</dt><dd>${state.history.length}</dd></div>
     <div><dt>senaste passet</dt><dd>${lastDate ? `${lastDate.getDate()} ${monShort(lastDate)}` : '–'}</dd></div>
   </dl>`;
@@ -519,12 +572,17 @@ function viewPass() {
   const total = a.exercises.length;
   const done = a.exercises.filter(e => e.done).length;
   const open = currentOpen();
-  const mins = minutesBetween(a.start, new Date());
+  const stale = isStale(a);
+  const mins = stale ? null : passMinutes(a.start, new Date());
 
   let h = `${t.over ? `<p class="overline">${esc(t.over)}</p>` : ''}
     <h2 class="pass-title">${esc(t.main)}</h2>
     ${progressBar(done, total)}
     <p class="muted small">${done} av ${plural(total, 'övning', 'övningar')} klara${mins ? ` · ${mins} min` : ''}</p>`;
+
+  if (stale) {
+    h += `<p class="notice">Passet startade ${esc(startedText(a.start))} och blev aldrig avslutat. Avsluta det för att spara det du hann med, eller avbryt passet. Det sparas på dagen då du startade.</p>`;
+  }
 
   if (!total) h += '<p>Lägg till din första övning.</p>';
   if (total && done === total) {
@@ -595,7 +653,7 @@ function viewHistorik() {
     }
     const ts = trends.get(p.id) || [];
     const ups = ts.filter(t => t.dir === 'up').length;
-    const mins = minutesBetween(p.start, p.end);
+    const mins = passMinutes(p.start, p.end);
     const meta = [
       p.week ? `Vecka ${p.week}` : '',
       mins ? `${mins} min` : '',
@@ -604,7 +662,7 @@ function viewHistorik() {
     ].filter(Boolean).join(' · ');
     const title = `${shortDate(p.start)} · ${splitTitle(p.title, 'Pass').main}`;
 
-    h += `<details class="card pass" ${idx === 0 ? 'open' : ''}>
+    h += `<details class="card pass" data-pass="${esc(p.id)}" ${idx === 0 ? 'open' : ''}>
       <summary>
         <div class="txt"><h4 class="name">${esc(title)}</h4><span class="meta">${esc(meta)}</span></div>
         <span class="chev">${icon('expand')}</span>
@@ -880,7 +938,17 @@ function finishPass() {
     id: a.id, start: a.start, end: new Date().toISOString(),
     title: a.title, week: a.week, exercises,
   });
+  state.history.sort(byStart);
   endPass('historik', 'Bra jobbat! Passet är sparat.');
+  showPass(a.id);
+}
+
+// Öppnar ett visst pass i historiken och rullar dit
+function showPass(id) {
+  const el = [...$main.querySelectorAll('details.pass')].find(d => d.dataset.pass === id);
+  if (!el) return;
+  el.open = true;
+  if (el !== $main.querySelector('details.pass')) scrollToEl(el);
 }
 
 function openPicker() {
@@ -892,6 +960,7 @@ function openPicker() {
 
 function renderPicker() {
   const q = $search.value.trim().toLowerCase();
+  const inPass = new Set(state.active ? state.active.exercises.map(e => e.exId) : []);
   let h = '';
   allGroups().forEach(g => {
     const list = allExercises().filter(e => e.group === g && exMatches(e, q));
@@ -899,7 +968,7 @@ function renderPicker() {
     h += `<h3>${esc(g)}</h3><div class="stack">
       ${list.map(e => `<button type="button" class="btn small pick" data-action="pick" data-id="${esc(e.id)}">
         ${thumb(e.id)}
-        <span>${esc(e.name)}<span class="sub">${eqTag(e.id)}${esc(e.part || '')}</span></span>
+        <span class="grow">${esc(e.name)}<span class="sub">${inPass.has(e.id) ? `<span class="eq in-pass">${icon('check')}I passet</span>` : ''}${eqTag(e.id)}${esc(e.part || '')}</span></span>
       </button>`).join('')}
     </div>`;
   });
@@ -1025,13 +1094,24 @@ document.addEventListener('click', ev => {
     case 'open-picker': openPicker(); break;
     case 'close-dialog': btn.closest('dialog').close(); break;
     case 'pick': {
-      a.exercises.push(newEntry(btn.dataset.id));
-      openIdx = a.exercises.length - 1;
+      const id = btn.dataset.id;
+      let idx = a.exercises.findIndex(e => e.exId === id);
+      const already = idx >= 0;
+      if (!already) {
+        // Sist i sin muskelgrupp, så att passet inte får samma rubrik två gånger
+        const group = exGroup(id);
+        let last = -1;
+        a.exercises.forEach((e, k) => { if (exGroup(e.exId) === group) last = k; });
+        idx = last >= 0 ? last + 1 : a.exercises.length;
+        a.exercises.splice(idx, 0, newEntry(id));
+      }
+      openIdx = idx;
       showHow = false;
       save();
       $picker.close();
       render();
       focusPassStep();
+      if (already) announce(`${exName(id)} finns redan i passet.`);
       break;
     }
 
@@ -1055,6 +1135,11 @@ document.addEventListener('click', ev => {
       save(); render();
       $main.focus({ preventScroll: true });
       announce('Övningen är raderad.');
+      break;
+
+    case 'show-pass':
+      show('historik');
+      showPass(btn.dataset.id);
       break;
 
     case 'export': exportData(); break;
