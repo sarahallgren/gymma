@@ -15,3 +15,6 @@
 - Testa i en webbläsare med mobilbredd (320–390 px) innan du öppnar en pull request: hela passflödet, gamla sparade data och båda färglägena.
 - Testa också med förstorad text: 200 % på 360–390 px och 150 % på 320 px. Inget får sticka ut utanför skärmen eller klippas. Använd `rem` för sådant som ska växa med texten och `px` för fasta ytor som bilder och ikoner.
 - Historiken hålls i tidsordning efter passets start. Ett pass som pågått längre än 6 timmar räknas som kvarglömt och visas utan längd i minuter.
+- Anteckningar per övning sparas i `notes` som `{ övningens id: text }`, högst 200 tecken.
+- Byten som Sara gör i schemat sparas i `rotation` som `{ "Muskelgrupp|vecka|plats": id }` och läggs ovanpå `ROTATION`. Läs alltid schemat med `rotWeek(grupp, vecka)`, aldrig direkt ur `ROTATION`, annars syns inte hennes byten. Ett byte gäller bara om övningen finns kvar och hör till samma muskelgrupp.
+- Väljaren (`openPicker`) har tre lägen: lägg till i passet, byt i dagens pass och byt i schemat.

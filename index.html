@@ -41,12 +41,29 @@
 
   <dialog id="picker" aria-labelledby="picker-title">
     <div class="picker-head">
-      <h2 id="picker-title">Lägg till övning</h2>
+      <h2 id="picker-title" tabindex="-1">Lägg till övning</h2>
       <button type="button" class="icon-btn" data-action="close-dialog" aria-label="Stäng"><span data-icon="close"></span></button>
     </div>
+    <p id="picker-intro" class="muted" hidden></p>
     <label for="picker-search" class="sr-only">Sök övning</label>
     <input id="picker-search" type="search" placeholder="Sök övning …" autocomplete="off">
     <div id="picker-list"></div>
+  </dialog>
+
+  <dialog id="note-dialog" aria-labelledby="note-title">
+    <form id="note-form">
+      <div class="picker-head">
+        <h2 id="note-title">Anteckning</h2>
+        <button type="button" class="icon-btn" data-action="close-dialog" aria-label="Stäng"><span data-icon="close"></span></button>
+      </div>
+      <label for="note-text" id="note-label">Anteckning</label>
+      <textarea id="note-text" rows="3" maxlength="200" aria-describedby="note-help"></textarea>
+      <p id="note-help" class="muted small">Visas varje gång du gör övningen. Till exempel sitshöjd eller grepp.</p>
+      <div class="row">
+        <button type="submit" class="btn primary small">Spara</button>
+        <button type="button" class="text-btn danger" id="note-delete" data-action="delete-note">Ta bort</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="theme-dialog" aria-labelledby="theme-title">
